@@ -51,13 +51,32 @@ def normalize_columns(columns):
     return normalized
 
 def detect_header_row(excel_file, sheet_name):
-    """Auto-detect header row dalam Excel"""
-    preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=5)
-    for i, row in preview.iterrows():
-        values = row.astype(str).str.lower().tolist()
-        if any("model" in v or "serial number" in v for v in values):
-            return i
-    return 0
+    """Auto-detect header row dalam Excel with better scanning"""
+    try:
+        # Read more rows to scan
+        preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=15, engine='openpyxl')
+        
+        for i, row in preview.iterrows():
+            # Convert row to lowercase strings
+            values = row.astype(str).str.lower().str.strip().tolist()
+            
+            # Count how many expected keywords we find
+            keywords = [
+                "model", "serial", "user", "department", 
+                "asset", "workstation", "location", "site",
+                "computer", "employee", "email"
+            ]
+            
+            matches = sum(1 for v in values if any(keyword in v for keyword in keywords))
+            
+            # If we find 3+ keywords, this is likely the header row
+            if matches >= 3:
+                return i
+        
+        # If no clear header found, return 0
+        return 0
+    except:
+        return 0
 
 def make_unique_columns(columns):
     """Buat column names yang unik"""
@@ -448,121 +467,152 @@ def create_location_chart(df):
 uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
-    xls = pd.ExcelFile(uploaded_file)
-    sheet_names = xls.sheet_names
-    selected_sheet = st.sidebar.selectbox("📑 Pilih Sheet", sheet_names)
+    try:
+        # Reset file pointer
+        uploaded_file.seek(0)
+        
+        xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
+        sheet_names = xls.sheet_names
+        selected_sheet = st.sidebar.selectbox("📑 Pilih Sheet", sheet_names)
 
-    # Auto detect header row
-    header_row = detect_header_row(uploaded_file, selected_sheet)
-
-    # Read Excel
-    df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row)
-
-    # Make unique & normalized columns
-    df.columns = make_unique_columns([str(c).strip() for c in df.columns])
-    colmap = normalize_columns(df.columns)
-
-    # Map to standard column names
-    new_columns = {}
-    for key, std_name in required_columns.items():
-        for norm_col, original_col in colmap.items():
-            if key in norm_col:
-                new_columns[original_col] = std_name
-
-    df = df.rename(columns=new_columns)
-
-    # Check if Model exists
-    if "Model" not in df.columns:
-        st.error("❌ Column 'Model' tidak dijumpai.")
-    else:
-        # Assign categories based on Model
-        df["Category"] = "Other"
-        for category, keywords in category_keywords.items():
-            mask = df["Model"].str.lower().str.contains("|".join(keywords), na=False)
-            df.loc[mask, "Category"] = category
-
-        # Inject custom CSS
-        local_css()
-
-        # DATA VALIDATION SECTION
-        st.markdown("---")
-        with st.expander("🔍 Data Validation Report", expanded=False):
-            issues = validate_data(df)
-            show_validation_issues(issues)
-
-        # Sidebar filters and controls
-        df_filtered, df_expired = sidebar_controls(df)
-
-        # EXPORT SECTION
+        # Auto detect header row
+        uploaded_file.seek(0)
+        header_row = detect_header_row(uploaded_file, selected_sheet)
+        
+        # Manual override option
         st.sidebar.markdown("---")
-        st.sidebar.markdown("## 📥 Export Data")
+        st.sidebar.markdown("### 🔧 Header Settings")
+        use_manual = st.sidebar.checkbox("Manual Header Row Selection", value=False)
+        if use_manual:
+            header_row = st.sidebar.number_input("Header Row (0-based)", min_value=0, max_value=20, value=header_row)
+            st.sidebar.success(f"✓ Using row {header_row} as header")
+
+        # Read Excel
+        uploaded_file.seek(0)
+        df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
         
-        col_exp1, col_exp2 = st.sidebar.columns(2)
+        # Make unique & normalized columns FIRST
+        df.columns = make_unique_columns([str(c).strip() for c in df.columns])
         
-        with col_exp1:
-            # Export filtered data
-            excel_data = export_to_excel(df_filtered)
-            st.download_button(
-                label="📊 Export Filtered",
-                data=excel_data,
-                file_name=f"assets_filtered_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        # Normalize all column names
+        colmap = normalize_columns(df.columns)
+
+        # Map to standard column names (avoid duplicates)
+        new_columns = {}
+        mapped_std_names = set()  # Track already mapped standard names
         
-        with col_exp2:
-            # Export expired data
-            if df_expired is not None and not df_expired.empty:
-                excel_expired = export_to_excel(df_expired)
+        for key, std_name in required_columns.items():
+            for norm_col, original_col in colmap.items():
+                if key in norm_col and std_name not in mapped_std_names:
+                    new_columns[original_col] = std_name
+                    mapped_std_names.add(std_name)
+                    break
+
+        # Rename columns safely
+        df = df.rename(columns=new_columns)
+        
+        # Remove any remaining duplicate columns
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        # Check if Model exists
+        if "Model" not in df.columns:
+            st.error("❌ Column 'Model' tidak dijumpai dalam file Excel.")
+            st.info("📋 Pastikan Excel file ada column dengan nama 'Model'")
+        else:
+            # Assign categories based on Model
+            df["Category"] = "Other"
+            for category, keywords in category_keywords.items():
+                mask = df["Model"].str.lower().str.contains("|".join(keywords), na=False)
+                df.loc[mask, "Category"] = category
+
+            # Inject custom CSS
+            local_css()
+
+            # DATA VALIDATION SECTION
+            st.markdown("---")
+            with st.expander("🔍 Data Validation Report", expanded=False):
+                issues = validate_data(df)
+                show_validation_issues(issues)
+
+            # Sidebar filters and controls
+            df_filtered, df_expired = sidebar_controls(df)
+
+            # EXPORT SECTION
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("## 📥 Export Data")
+            
+            col_exp1, col_exp2 = st.sidebar.columns(2)
+            
+            with col_exp1:
+                excel_data = export_to_excel(df_filtered)
                 st.download_button(
-                    label="⚠️ Export Expired",
-                    data=excel_expired,
-                    file_name=f"assets_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    label="📊 Export Filtered",
+                    data=excel_data,
+                    file_name=f"assets_filtered_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+            
+            with col_exp2:
+                if df_expired is not None and not df_expired.empty:
+                    excel_expired = export_to_excel(df_expired)
+                    st.download_button(
+                        label="⚠️ Export Expired",
+                        data=excel_expired,
+                        file_name=f"assets_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
-        # Summary cards
-        st.subheader("📊 Dashboard Summary")
-        show_summary_cards(df_filtered, df_expired)
+            # Summary cards
+            st.subheader("📊 Dashboard Summary")
+            show_summary_cards(df_filtered, df_expired)
 
-        # Category metrics
-        st.subheader("📈 Asset Breakdown by Category")
-        show_category_metrics(df_filtered)
+            # Category metrics
+            st.subheader("📈 Asset Breakdown by Category")
+            show_category_metrics(df_filtered)
 
-        # VISUAL CHARTS
-        st.markdown("---")
-        st.subheader("📊 Visual Analytics")
-        
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            # Pie chart
-            pie_fig = create_pie_chart(df_filtered)
-            st.plotly_chart(pie_fig, use_container_width=True)
-        
-        with col_chart2:
-            # Department chart
-            dept_fig = create_department_chart(df_filtered)
-            if dept_fig:
-                st.plotly_chart(dept_fig, use_container_width=True)
-            else:
-                st.info("Department data not available")
-        
-        # Location chart (full width)
-        loc_fig = create_location_chart(df_filtered)
-        if loc_fig:
-            st.plotly_chart(loc_fig, use_container_width=True)
-
-        # Expired assets section
-        if df_expired is not None and not df_expired.empty:
+            # VISUAL CHARTS
             st.markdown("---")
-            st.subheader("⚠️ Assets Marked for Replacement")
-            st.dataframe(df_expired, use_container_width=True)
+            st.subheader("📊 Visual Analytics")
+            
+            col_chart1, col_chart2 = st.columns(2)
+            
+            with col_chart1:
+                pie_fig = create_pie_chart(df_filtered)
+                st.plotly_chart(pie_fig, use_container_width=True)
+            
+            with col_chart2:
+                dept_fig = create_department_chart(df_filtered)
+                if dept_fig:
+                    st.plotly_chart(dept_fig, use_container_width=True)
+                else:
+                    st.info("Department data not available")
+            
+            loc_fig = create_location_chart(df_filtered)
+            if loc_fig:
+                st.plotly_chart(loc_fig, use_container_width=True)
 
-        # Full asset details table
-        st.markdown("---")
-        st.subheader("📋 Asset Details")
-        safe_columns = list(dict.fromkeys(list(new_columns.values()) + ["Category"]))
-        st.dataframe(df_filtered[safe_columns], use_container_width=True)
+            # Expired assets section
+            if df_expired is not None and not df_expired.empty:
+                st.markdown("---")
+                st.subheader("⚠️ Assets Marked for Replacement")
+                st.dataframe(df_expired, use_container_width=True)
+
+            # Full asset details table
+            st.markdown("---")
+            st.subheader("📋 Asset Details")
+            safe_columns = list(dict.fromkeys(list(new_columns.values()) + ["Category"]))
+            st.dataframe(df_filtered[safe_columns], use_container_width=True)
+    
+    except Exception as e:
+        st.error(f"❌ Error reading Excel file: {str(e)}")
+        st.warning("💡 **Troubleshooting Tips:**")
+        st.markdown("""
+        1. **Cuba buka file dalam Excel** dan save semula sebagai .xlsx
+        2. **Check file size** - pastikan tidak terlalu besar
+        3. **Remove password protection** jika ada
+        4. **Copy data ke Excel baru** dan save
+        5. **Pastikan file tidak corrupt** - cuba buka dalam Excel dulu
+        """)
 
 else:
     st.info("📂 Sila upload fail Excel untuk mula.")
