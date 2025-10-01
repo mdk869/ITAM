@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import re
+from io import BytesIO
+import plotly.express as px
+import plotly.graph_objects as go
 
 # ============ PAGE CONFIG ============
 st.set_page_config(page_title="IT Asset Management Dashboard", layout="wide")
@@ -63,8 +66,105 @@ def make_unique_columns(columns):
             new_cols.append(col)
     return new_cols
 
+def validate_data(df):
+    """Validate data dan return issues"""
+    issues = []
+    
+    # Check duplicate Asset Tags
+    if "Asset Tag" in df.columns:
+        duplicates = df[df["Asset Tag"].duplicated(keep=False) & df["Asset Tag"].notna()]
+        if not duplicates.empty:
+            dup_tags = duplicates["Asset Tag"].unique()
+            issues.append({
+                "type": "Duplicate Asset Tags",
+                "count": len(dup_tags),
+                "details": f"Found {len(dup_tags)} duplicate asset tags",
+                "severity": "high"
+            })
+    
+    # Check duplicate Serial Numbers
+    if "Serial Number" in df.columns:
+        duplicates = df[df["Serial Number"].duplicated(keep=False) & df["Serial Number"].notna()]
+        if not duplicates.empty:
+            dup_serials = duplicates["Serial Number"].unique()
+            issues.append({
+                "type": "Duplicate Serial Numbers",
+                "count": len(dup_serials),
+                "details": f"Found {len(dup_serials)} duplicate serial numbers",
+                "severity": "high"
+            })
+    
+    # Check missing User info
+    if "User" in df.columns:
+        missing_users = df[df["User"].isna() | (df["User"] == "")].shape[0]
+        if missing_users > 0:
+            issues.append({
+                "type": "Missing User Assignment",
+                "count": missing_users,
+                "details": f"{missing_users} assets without assigned users",
+                "severity": "medium"
+            })
+    
+    # Check invalid email format
+    if "User Email" in df.columns:
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        invalid_emails = df[df["User Email"].notna() & 
+                           ~df["User Email"].astype(str).str.match(email_pattern)]
+        if not invalid_emails.empty:
+            issues.append({
+                "type": "Invalid Email Format",
+                "count": len(invalid_emails),
+                "details": f"{len(invalid_emails)} invalid email addresses",
+                "severity": "low"
+            })
+    
+    # Check missing Department
+    if "Department" in df.columns:
+        missing_dept = df[df["Department"].isna() | (df["Department"] == "")].shape[0]
+        if missing_dept > 0:
+            issues.append({
+                "type": "Missing Department",
+                "count": missing_dept,
+                "details": f"{missing_dept} assets without department",
+                "severity": "medium"
+            })
+    
+    # Check missing Location
+    if "Location" in df.columns:
+        missing_loc = df[df["Location"].isna() | (df["Location"] == "")].shape[0]
+        if missing_loc > 0:
+            issues.append({
+                "type": "Missing Location",
+                "count": missing_loc,
+                "details": f"{missing_loc} assets without location",
+                "severity": "medium"
+            })
+    
+    return issues
+
+def show_validation_issues(issues):
+    """Display validation issues"""
+    if not issues:
+        st.success("✅ No data validation issues found!")
+        return
+    
+    st.warning(f"⚠️ Found {len(issues)} validation issue(s)")
+    
+    for issue in issues:
+        severity_emoji = "🔴" if issue["severity"] == "high" else "🟡" if issue["severity"] == "medium" else "🟢"
+        with st.expander(f"{severity_emoji} {issue['type']} ({issue['count']})"):
+            st.write(issue['details'])
+
+def export_to_excel(df, filename="asset_data.xlsx"):
+    """Export dataframe to Excel"""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Assets')
+    output.seek(0)
+    return output
+
 def local_css():
-    """Inject CSS untuk custom cards"""
+    """Inject CSS untuk custom cards dan table styling"""
     st.markdown("""
         <style>
         .card {
@@ -80,6 +180,8 @@ def local_css():
         .green {background-color: #2ecc71;}
         .navy {background-color: #001F54;}
         .white {background-color: #FFFFFF; color: black;}
+        .red {background-color: #e74c3c;}
+        .orange {background-color: #f39c12;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -225,6 +327,82 @@ def show_category_metrics(df):
         count = category_counts.get(cat, 0)
         col_metrics[i].metric(cat, count)
 
+def create_pie_chart(df):
+    """Create interactive pie chart untuk category distribution"""
+    category_counts = df["Category"].value_counts()
+    
+    fig = px.pie(
+        values=category_counts.values,
+        names=category_counts.index,
+        title="Asset Distribution by Category",
+        hole=0.4,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+    
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
+    )
+    
+    fig.update_layout(
+        showlegend=True,
+        height=400,
+        margin=dict(t=50, b=0, l=0, r=0)
+    )
+    
+    return fig
+
+def create_department_chart(df):
+    """Create bar chart untuk assets by department"""
+    if "Department" not in df.columns:
+        return None
+    
+    dept_counts = df["Department"].value_counts().head(10)
+    
+    fig = px.bar(
+        x=dept_counts.values,
+        y=dept_counts.index,
+        orientation='h',
+        title="Top 10 Departments by Asset Count",
+        labels={'x': 'Asset Count', 'y': 'Department'},
+        color=dept_counts.values,
+        color_continuous_scale='Blues'
+    )
+    
+    fig.update_layout(
+        showlegend=False,
+        height=400,
+        margin=dict(t=50, b=50, l=0, r=0)
+    )
+    
+    return fig
+
+def create_location_chart(df):
+    """Create bar chart untuk assets by location"""
+    if "Location" not in df.columns:
+        return None
+    
+    loc_counts = df["Location"].value_counts().head(10)
+    
+    fig = px.bar(
+        x=loc_counts.values,
+        y=loc_counts.index,
+        orientation='h',
+        title="Top 10 Locations by Asset Count",
+        labels={'x': 'Asset Count', 'y': 'Location'},
+        color=loc_counts.values,
+        color_continuous_scale='Greens'
+    )
+    
+    fig.update_layout(
+        showlegend=False,
+        height=400,
+        margin=dict(t=50, b=50, l=0, r=0)
+    )
+    
+    return fig
+
 # ============ MAIN APP ============
 
 uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"])
@@ -266,8 +444,41 @@ if uploaded_file is not None:
         # Inject custom CSS
         local_css()
 
+        # DATA VALIDATION SECTION
+        st.markdown("---")
+        with st.expander("🔍 Data Validation Report", expanded=False):
+            issues = validate_data(df)
+            show_validation_issues(issues)
+
         # Sidebar filters and controls
         df_filtered, df_expired = sidebar_controls(df)
+
+        # EXPORT SECTION
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 📥 Export Data")
+        
+        col_exp1, col_exp2 = st.sidebar.columns(2)
+        
+        with col_exp1:
+            # Export filtered data
+            excel_data = export_to_excel(df_filtered)
+            st.download_button(
+                label="📊 Export Filtered",
+                data=excel_data,
+                file_name=f"assets_filtered_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        
+        with col_exp2:
+            # Export expired data
+            if df_expired is not None and not df_expired.empty:
+                excel_expired = export_to_excel(df_expired)
+                st.download_button(
+                    label="⚠️ Export Expired",
+                    data=excel_expired,
+                    file_name=f"assets_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
         # Summary cards
         st.subheader("📊 Dashboard Summary")
@@ -277,17 +488,38 @@ if uploaded_file is not None:
         st.subheader("📈 Asset Breakdown by Category")
         show_category_metrics(df_filtered)
 
-        # Category chart
-        st.subheader("📊 Asset Distribution Chart")
-        category_counts = df_filtered["Category"].value_counts()
-        st.bar_chart(category_counts)
+        # VISUAL CHARTS
+        st.markdown("---")
+        st.subheader("📊 Visual Analytics")
+        
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            # Pie chart
+            pie_fig = create_pie_chart(df_filtered)
+            st.plotly_chart(pie_fig, use_container_width=True)
+        
+        with col_chart2:
+            # Department chart
+            dept_fig = create_department_chart(df_filtered)
+            if dept_fig:
+                st.plotly_chart(dept_fig, use_container_width=True)
+            else:
+                st.info("Department data not available")
+        
+        # Location chart (full width)
+        loc_fig = create_location_chart(df_filtered)
+        if loc_fig:
+            st.plotly_chart(loc_fig, use_container_width=True)
 
         # Expired assets section
         if df_expired is not None and not df_expired.empty:
+            st.markdown("---")
             st.subheader("⚠️ Assets Marked for Replacement")
             st.dataframe(df_expired, use_container_width=True)
 
         # Full asset details table
+        st.markdown("---")
         st.subheader("📋 Asset Details")
         safe_columns = list(dict.fromkeys(list(new_columns.values()) + ["Category"]))
         st.dataframe(df_filtered[safe_columns], use_container_width=True)
