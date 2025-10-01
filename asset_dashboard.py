@@ -20,13 +20,11 @@ category_keywords = {
 
 # ============ REQUIRED COLUMNS ============
 required_columns = {
-    "computer": "Computer",
     "workstationtype": "Workstation Type",
     "serialnumber": "Serial Number",
     "model": "Model",
     "workstationstatus": "Workstation Status",
     "assettag": "Asset Tag",
-    "servicetag": "Service Tag",
     "state": "State",
     "useremployeeid": "User Employee ID",
     "user": "User",
