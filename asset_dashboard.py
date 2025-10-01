@@ -9,14 +9,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="IT Asset Management Dashboard", layout="wide")
 st.title("💻 IT Asset Management Dashboard")
 
-# ============ CATEGORY MAPPING ============
-category_keywords = {
-    "Desktop": ["optiplex"],
-    "Laptop Dell": ["latitude"],
-    "Laptop Acer": ["travelmate"],
-    "Toughbook": ["rugged"],
-    "iPad": ["ipad"]
-}
+# Category mapping removed - using Model directly
 
 # ============ REQUIRED COLUMNS ============
 required_columns = {
@@ -357,13 +350,12 @@ def sidebar_controls(df):
     """Sidebar untuk filters dan controls"""
     st.sidebar.markdown("## ⚙️ Asset Controls")
 
-    # Category filter
-    category_filter = st.sidebar.multiselect(
-        "📂 Category", 
-        df["Category"].unique(), 
-        default=df["Category"].unique()
+    # Model filter
+    model_filter = st.sidebar.multiselect(
+        "📦 Model",
+        df["Model"].unique() if "Model" in df.columns else []
     )
-    
+
     # Workstation Type filter
     type_filter = []
     if "Workstation Type" in df.columns:
@@ -430,8 +422,8 @@ def sidebar_controls(df):
     # Apply filters
     filtered_df = df.copy()
 
-    if category_filter:
-        filtered_df = filtered_df[filtered_df["Category"].isin(category_filter)]
+    if model_filter:
+        filtered_df = filtered_df[filtered_df["Model"].isin(model_filter)]
 
     if type_filter:
         filtered_df = filtered_df[filtered_df["Workstation Type"].isin(type_filter)]
@@ -536,29 +528,32 @@ def show_category_metrics(df):
     )
 
 def create_pie_chart(df):
-    """Create interactive pie chart untuk category distribution"""
-    category_counts = df["Category"].value_counts()
-    
+    """Create interactive pie chart untuk model distribution"""
+    if "Model" not in df.columns:
+        return None
+
+    model_counts = df["Model"].value_counts()
+
     fig = px.pie(
-        values=category_counts.values,
-        names=category_counts.index,
-        title="Asset Distribution by Category",
+        values=model_counts.values,
+        names=model_counts.index,
+        title="Asset Distribution by Model",
         hole=0.4,
         color_discrete_sequence=px.colors.qualitative.Set3
     )
-    
+
     fig.update_traces(
         textposition='inside',
         textinfo='percent+label',
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
     )
-    
+
     fig.update_layout(
         showlegend=True,
         height=400,
         margin=dict(t=50, b=0, l=0, r=0)
     )
-    
+
     return fig
 
 def create_department_chart(df):
@@ -673,12 +668,6 @@ if uploaded_file is not None:
             
             # Get warranty status
             df, expired_warranty_df = get_warranty_status(df)
-            
-            # Assign categories based on Model
-            df["Category"] = "Other"
-            for category, keywords in category_keywords.items():
-                mask = df["Model"].str.lower().str.contains("|".join(keywords), na=False)
-                df.loc[mask, "Category"] = category
 
             # Inject custom CSS
             local_css()
@@ -779,7 +768,7 @@ if uploaded_file is not None:
             # Full asset details table
             st.markdown("---")
             st.subheader("📋 Asset Details")
-            safe_columns = list(dict.fromkeys(list(new_columns.values()) + ["Category"]))
+            safe_columns = list(dict.fromkeys(list(new_columns.values())))
             st.dataframe(df_filtered[safe_columns], use_container_width=True)
 
     except Exception as e:
