@@ -471,9 +471,20 @@ if uploaded_file is not None:
 
     df = df.rename(columns=new_columns)
 
+    # DEBUG: Show detected columns
+    with st.expander("🔧 Debug: Column Detection", expanded=False):
+        st.write("**Original Columns Found:**")
+        st.write(list(df.columns))
+        st.write("**Mapped Columns:**")
+        st.write(new_columns)
+        st.write("**Normalized Column Keys:**")
+        st.write(list(colmap.keys()))
+
     # Check if Model exists
     if "Model" not in df.columns:
         st.error("❌ Column 'Model' tidak dijumpai.")
+        st.warning("💡 Sila check 'Debug: Column Detection' di atas untuk lihat column names yang dijumpai.")
+        st.info("Pastikan Excel file ada column dengan nama 'Model'.")
     else:
         # Assign categories based on Model
         df["Category"] = "Other"
