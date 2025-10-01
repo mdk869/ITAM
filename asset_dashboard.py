@@ -52,10 +52,12 @@ def normalize_columns(columns):
 
 def detect_header_row(excel_file, sheet_name):
     """Auto-detect header row dalam Excel"""
-    preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=5)
+    preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=10)
     for i, row in preview.iterrows():
         values = row.astype(str).str.lower().tolist()
-        if any("model" in v or "serial number" in v for v in values):
+        # Check for common header keywords
+        keywords = ["model", "serial number", "user", "department", "asset tag", "workstation"]
+        if any(keyword in v for v in values for keyword in keywords):
             return i
     return 0
 
@@ -454,6 +456,15 @@ if uploaded_file is not None:
 
     # Auto detect header row
     header_row = detect_header_row(uploaded_file, selected_sheet)
+    
+    # Manual override option
+    st.sidebar.markdown("---")
+    use_manual = st.sidebar.checkbox("🔧 Manual Header Row Selection", value=False)
+    if use_manual:
+        header_row = st.sidebar.number_input("Header Row (0-based index)", min_value=0, max_value=20, value=header_row)
+        st.sidebar.info(f"Using row {header_row} as header")
+    else:
+        st.sidebar.info(f"Auto-detected header at row {header_row}")
 
     # Read Excel
     df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row)
