@@ -506,7 +506,6 @@ def show_category_metrics(df):
     # Get model counts and sort by count (descending)
     model_counts = df["Model"].value_counts().sort_values(ascending=False)
 
-   
     # Create a more readable table display
     st.markdown("### Unit Breakdown by Model")
 
@@ -526,6 +525,42 @@ def show_category_metrics(df):
             "Total Units": st.column_config.NumberColumn("Total Units", width="small")
         }
     )
+
+def show_workstation_type_cards(df):
+    """Display workstation type breakdown as metric cards"""
+    if "Workstation Type" not in df.columns:
+        st.warning("Column 'Workstation Type' tidak dijumpai.")
+        return
+
+    st.markdown("### 💻 Workstation Type Statistics")
+
+    # Get workstation type counts
+    type_counts = df["Workstation Type"].value_counts().sort_values(ascending=False)
+
+    # Calculate number of columns needed (max 4 per row)
+    num_types = len(type_counts)
+    cols_per_row = min(4, num_types)
+
+    # Create columns for cards
+    cols = st.columns(cols_per_row)
+
+    # Define color classes
+    colors = ["baby-blue", "green", "navy", "orange", "red"]
+
+    for idx, (wtype, count) in enumerate(type_counts.items()):
+        col_idx = idx % cols_per_row
+        color = colors[idx % len(colors)]
+
+        with cols[col_idx]:
+            st.markdown(f"""
+                <div class="card {color}">
+                    💻 <br/> {wtype} <br/><h2>{count}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+        # Create new row if needed
+        if (idx + 1) % cols_per_row == 0 and (idx + 1) < num_types:
+            cols = st.columns(cols_per_row)
 
 def create_pie_chart(df):
     """Create interactive pie chart untuk model distribution"""
@@ -723,6 +758,10 @@ if uploaded_file is not None:
             st.subheader("📊 Dashboard Summary")
             show_summary_cards(df_filtered, df_expired)
 
+            # WORKSTATION TYPE SECTION
+            st.markdown("---")
+            show_workstation_type_cards(df_filtered)
+
             # WARRANTY STATUS SECTION
             if "Warranty Status" in df_filtered.columns:
                 st.markdown("---")
@@ -769,6 +808,9 @@ if uploaded_file is not None:
             st.markdown("---")
             st.subheader("📋 Asset Details")
             safe_columns = list(dict.fromkeys(list(new_columns.values())))
+            # Remove Year Of Purchase from display
+            if "Year Of Purchase" in safe_columns:
+                safe_columns.remove("Year Of Purchase")
             st.dataframe(df_filtered[safe_columns], use_container_width=True)
 
     except Exception as e:
