@@ -515,7 +515,6 @@ def show_category_metrics(df):
     model_counts = df["Model"].value_counts().sort_values(ascending=False)
 
    
-
     # Create a more readable table display
     st.markdown("### Unit Breakdown by Model")
 
@@ -746,10 +745,6 @@ if uploaded_file is not None:
                 st.markdown("---")
                 st.subheader("📅 Asset Age Analysis")
                 show_asset_age_summary(df_filtered)
-
-            # Category metrics
-            st.subheader("📈 Asset Breakdown by Category")
-            show_category_metrics(df_filtered)
 
             # VISUAL CHARTS
             st.markdown("---")
