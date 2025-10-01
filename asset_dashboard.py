@@ -52,7 +52,7 @@ def normalize_columns(columns):
 
 def detect_header_row(excel_file, sheet_name):
     """Auto-detect header row dalam Excel"""
-    preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=10)
+    preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=10, engine='openpyxl')
     for i, row in preview.iterrows():
         values = row.astype(str).str.lower().tolist()
         # Check for common header keywords
@@ -450,7 +450,7 @@ def create_location_chart(df):
 uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
-    xls = pd.ExcelFile(uploaded_file)
+    xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
     sheet_names = xls.sheet_names
     selected_sheet = st.sidebar.selectbox("📑 Pilih Sheet", sheet_names)
 
@@ -467,7 +467,7 @@ if uploaded_file is not None:
         st.sidebar.info(f"Auto-detected header at row {header_row}")
 
     # Read Excel
-    df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row)
+    df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
 
     # Make unique & normalized columns
     df.columns = make_unique_columns([str(c).strip() for c in df.columns])
