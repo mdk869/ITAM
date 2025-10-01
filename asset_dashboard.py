@@ -216,9 +216,9 @@ def make_unique_columns(columns):
     return new_cols
 
 def validate_data(df):
-    """Validate data dan return issues"""
+    """Validate data dan return issues with affected data"""
     issues = []
-    
+
     # Check duplicate Asset Tags
     if "Asset Tag" in df.columns:
         duplicates = df[df["Asset Tag"].duplicated(keep=False) & df["Asset Tag"].notna()]
@@ -228,9 +228,10 @@ def validate_data(df):
                 "type": "Duplicate Asset Tags",
                 "count": len(dup_tags),
                 "details": f"Found {len(dup_tags)} duplicate asset tags",
-                "severity": "high"
+                "severity": "high",
+                "data": duplicates[["Asset Tag", "Model", "Serial Number", "User"]].sort_values("Asset Tag")
             })
-    
+
     # Check duplicate Serial Numbers
     if "Serial Number" in df.columns:
         duplicates = df[df["Serial Number"].duplicated(keep=False) & df["Serial Number"].notna()]
@@ -240,9 +241,10 @@ def validate_data(df):
                 "type": "Duplicate Serial Numbers",
                 "count": len(dup_serials),
                 "details": f"Found {len(dup_serials)} duplicate serial numbers",
-                "severity": "high"
+                "severity": "high",
+                "data": duplicates[["Serial Number", "Model", "Asset Tag", "User"]].sort_values("Serial Number")
             })
-    
+
     # Check duplicate Service Tags
     if "Service Tag" in df.columns:
         duplicates = df[df["Service Tag"].duplicated(keep=False) & df["Service Tag"].notna()]
@@ -252,96 +254,119 @@ def validate_data(df):
                 "type": "Duplicate Service Tags",
                 "count": len(dup_service),
                 "details": f"Found {len(dup_service)} duplicate service tags",
-                "severity": "high"
+                "severity": "high",
+                "data": duplicates[["Service Tag", "Model", "Asset Tag", "User"]].sort_values("Service Tag")
             })
-    
+
     # Check missing User info
     if "User" in df.columns:
-        missing_users = df[df["User"].isna() | (df["User"] == "")].shape[0]
-        if missing_users > 0:
+        missing_users = df[df["User"].isna() | (df["User"] == "")]
+        if not missing_users.empty:
+            display_cols = ["Asset Tag", "Model", "Serial Number", "Department", "Location"]
+            available_cols = [col for col in display_cols if col in missing_users.columns]
             issues.append({
                 "type": "Missing User Assignment",
-                "count": missing_users,
-                "details": f"{missing_users} assets without assigned users",
-                "severity": "medium"
+                "count": len(missing_users),
+                "details": f"{len(missing_users)} assets without assigned users",
+                "severity": "medium",
+                "data": missing_users[available_cols]
             })
-    
+
     # Check invalid email format
     if "User Email" in df.columns:
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-        invalid_emails = df[df["User Email"].notna() & 
+        invalid_emails = df[df["User Email"].notna() &
                            ~df["User Email"].astype(str).str.match(email_pattern)]
         if not invalid_emails.empty:
+            display_cols = ["User", "User Email", "Asset Tag", "Model"]
+            available_cols = [col for col in display_cols if col in invalid_emails.columns]
             issues.append({
                 "type": "Invalid Email Format",
                 "count": len(invalid_emails),
                 "details": f"{len(invalid_emails)} invalid email addresses",
-                "severity": "low"
+                "severity": "low",
+                "data": invalid_emails[available_cols]
             })
-    
+
     # Check missing Department
     if "Department" in df.columns:
-        missing_dept = df[df["Department"].isna() | (df["Department"] == "")].shape[0]
-        if missing_dept > 0:
+        missing_dept = df[df["Department"].isna() | (df["Department"] == "")]
+        if not missing_dept.empty:
+            display_cols = ["Asset Tag", "Model", "User", "Location"]
+            available_cols = [col for col in display_cols if col in missing_dept.columns]
             issues.append({
                 "type": "Missing Department",
-                "count": missing_dept,
-                "details": f"{missing_dept} assets without department",
-                "severity": "medium"
+                "count": len(missing_dept),
+                "details": f"{len(missing_dept)} assets without department",
+                "severity": "medium",
+                "data": missing_dept[available_cols]
             })
-    
+
     # Check missing Location
     if "Location" in df.columns:
-        missing_loc = df[df["Location"].isna() | (df["Location"] == "")].shape[0]
-        if missing_loc > 0:
+        missing_loc = df[df["Location"].isna() | (df["Location"] == "")]
+        if not missing_loc.empty:
+            display_cols = ["Asset Tag", "Model", "User", "Department"]
+            available_cols = [col for col in display_cols if col in missing_loc.columns]
             issues.append({
                 "type": "Missing Location",
-                "count": missing_loc,
-                "details": f"{missing_loc} assets without location",
-                "severity": "medium"
+                "count": len(missing_loc),
+                "details": f"{len(missing_loc)} assets without location",
+                "severity": "medium",
+                "data": missing_loc[available_cols]
             })
-    
+
     # Check missing Model
     if "Model" in df.columns:
-        missing_model = df[df["Model"].isna() | (df["Model"] == "")].shape[0]
-        if missing_model > 0:
+        missing_model = df[df["Model"].isna() | (df["Model"] == "")]
+        if not missing_model.empty:
+            display_cols = ["Asset Tag", "Serial Number", "User", "Department"]
+            available_cols = [col for col in display_cols if col in missing_model.columns]
             issues.append({
                 "type": "Missing Model",
-                "count": missing_model,
-                "details": f"{missing_model} assets without model information",
-                "severity": "high"
+                "count": len(missing_model),
+                "details": f"{len(missing_model)} assets without model information",
+                "severity": "high",
+                "data": missing_model[available_cols]
             })
-    
+
     # Check expired warranties
     if "Warranty Expiry" in df.columns:
         try:
             df_temp = df.copy()
             df_temp["Warranty Expiry"] = pd.to_datetime(df_temp["Warranty Expiry"], errors='coerce')
-            expired_warranty = df_temp[df_temp["Warranty Expiry"] < pd.Timestamp.now()].shape[0]
-            if expired_warranty > 0:
+            expired_warranty = df_temp[df_temp["Warranty Expiry"] < pd.Timestamp.now()]
+            if not expired_warranty.empty:
+                display_cols = ["Asset Tag", "Model", "User", "Warranty Expiry"]
+                available_cols = [col for col in display_cols if col in expired_warranty.columns]
                 issues.append({
                     "type": "Expired Warranties",
-                    "count": expired_warranty,
-                    "details": f"{expired_warranty} assets with expired warranties",
-                    "severity": "medium"
+                    "count": len(expired_warranty),
+                    "details": f"{len(expired_warranty)} assets with expired warranties",
+                    "severity": "medium",
+                    "data": expired_warranty[available_cols]
                 })
         except:
             pass
-    
+
     return issues
 
 def show_validation_issues(issues):
-    """Display validation issues"""
+    """Display validation issues with affected data"""
     if not issues:
         st.success("✅ No data validation issues found!")
         return
-    
+
     st.warning(f"⚠️ Found {len(issues)} validation issue(s)")
-    
+
     for issue in issues:
         severity_emoji = "🔴" if issue["severity"] == "high" else "🟡" if issue["severity"] == "medium" else "🟢"
-        with st.expander(f"{severity_emoji} {issue['type']} ({issue['count']})"):
+        with st.expander(f"{severity_emoji} {issue['type']} ({issue['count']})", expanded=False):
             st.write(issue['details'])
+
+            if "data" in issue and not issue["data"].empty:
+                st.markdown("**Affected Assets:**")
+                st.dataframe(issue["data"], use_container_width=True, hide_index=True)
 
 def export_to_excel(df, filename="asset_data.xlsx"):
     """Export dataframe to Excel"""
