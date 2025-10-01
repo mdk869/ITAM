@@ -78,7 +78,7 @@ def get_warranty_status(df):
         return df, None
 
 def show_warranty_summary(df):
-    """Show warranty status summary"""
+    """Show warranty status summary with expandable tables"""
     if "Warranty Status" not in df.columns:
         return
 
@@ -109,6 +109,33 @@ def show_warranty_summary(df):
                 ✅ <br/> Active Warranty <br/><h2>{active}</h2>
             </div>
         """, unsafe_allow_html=True)
+
+    # Expandable sections for each warranty status
+    st.markdown("---")
+
+    # Expired warranty list
+    expired_df = df[df["Warranty Status"] == "Expired"]
+    if not expired_df.empty:
+        with st.expander(f"⚠️ Expired Warranty Assets ({len(expired_df)})", expanded=False):
+            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
+            available_cols = [col for col in display_cols if col in expired_df.columns]
+            st.dataframe(expired_df[available_cols], use_container_width=True, hide_index=True)
+
+    # Expiring soon list
+    expiring_df = df[df["Warranty Status"] == "Expiring Soon"]
+    if not expiring_df.empty:
+        with st.expander(f"⏰ Expiring Soon Assets ({len(expiring_df)})", expanded=False):
+            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
+            available_cols = [col for col in display_cols if col in expiring_df.columns]
+            st.dataframe(expiring_df[available_cols], use_container_width=True, hide_index=True)
+
+    # Active warranty list
+    active_df = df[df["Warranty Status"] == "Active"]
+    if not active_df.empty:
+        with st.expander(f"✅ Active Warranty Assets ({len(active_df)})", expanded=False):
+            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
+            available_cols = [col for col in display_cols if col in active_df.columns]
+            st.dataframe(active_df[available_cols], use_container_width=True, hide_index=True)
 
 def show_asset_age_summary(df):
     """Show asset age distribution"""
