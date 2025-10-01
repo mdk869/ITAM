@@ -9,15 +9,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="IT Asset Management Dashboard", layout="wide")
 st.title("💻 IT Asset Management Dashboard")
 
-# ============ CATEGORY MAPPING ============
-category_keywords = {
-    "Desktop": ["optiplex"],
-    "Laptop Dell": ["latitude"],
-    "Laptop Acer": ["travelmate"],
-    "Toughbook": ["rugged"],
-    "iPad": ["ipad"]
-}
-
 # ============ REQUIRED COLUMNS ============
 required_columns = {
     "workstationtype": "Workstation Type",
