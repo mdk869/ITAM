@@ -506,16 +506,38 @@ def show_summary_cards(df, df_expired=None):
         """, unsafe_allow_html=True)
 
 def show_category_metrics(df):
-    """Display category breakdown metrics"""
-    category_counts = df["Category"].value_counts()
-    
-    col_metrics = st.columns(6)
-    col_metrics[0].metric("Total Asset", len(df))
-    
-    categories = ["Desktop", "Laptop Dell", "Laptop Acer", "Toughbook", "iPad"]
-    for i, cat in enumerate(categories, start=1):
-        count = category_counts.get(cat, 0)
-        col_metrics[i].metric(cat, count)
+    """Display model breakdown metrics - scan all unique models and count units"""
+    if "Model" not in df.columns:
+        st.warning("Column 'Model' tidak dijumpai.")
+        return
+
+    # Get model counts and sort by count (descending)
+    model_counts = df["Model"].value_counts().sort_values(ascending=False)
+
+    # Display total assets
+    st.metric("Total Asset", len(df))
+
+    st.markdown("---")
+
+    # Create a more readable table display
+    st.markdown("### Unit Breakdown by Model")
+
+    # Convert to dataframe for better display
+    model_df = pd.DataFrame({
+        "Model": model_counts.index,
+        "Total Units": model_counts.values
+    })
+
+    # Display as styled dataframe
+    st.dataframe(
+        model_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Model": st.column_config.TextColumn("Model", width="large"),
+            "Total Units": st.column_config.NumberColumn("Total Units", width="small")
+        }
+    )
 
 def create_pie_chart(df):
     """Create interactive pie chart untuk category distribution"""
