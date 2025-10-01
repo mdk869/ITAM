@@ -746,6 +746,9 @@ if uploaded_file is not None:
                 st.subheader("📅 Asset Age Analysis")
                 show_asset_age_summary(df_filtered)
 
+            # Category metrics
+            show_category_metrics(df_filtered)
+
             # VISUAL CHARTS
             st.markdown("---")
             st.subheader("📊 Visual Analytics")
