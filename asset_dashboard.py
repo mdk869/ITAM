@@ -514,10 +514,7 @@ def show_category_metrics(df):
     # Get model counts and sort by count (descending)
     model_counts = df["Model"].value_counts().sort_values(ascending=False)
 
-    # Display total assets
-    st.metric("Total Asset", len(df))
-
-    st.markdown("---")
+   
 
     # Create a more readable table display
     st.markdown("### Unit Breakdown by Model")
