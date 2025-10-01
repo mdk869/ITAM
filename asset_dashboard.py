@@ -20,18 +20,24 @@ category_keywords = {
 
 # ============ REQUIRED COLUMNS ============
 required_columns = {
-    "user employee id": "User Employee ID",
+    "computer": "Computer",
+    "workstationtype": "Workstation Type",
+    "serialnumber": "Serial Number",
+    "model": "Model",
+    "workstationstatus": "Workstation Status",
+    "assettag": "Asset Tag",
+    "servicetag": "Service Tag",
+    "state": "State",
+    "useremployeeid": "User Employee ID",
     "user": "User",
-    "user jobtitle": "User Jobtitle",
-    "user email": "User Email",
-    "site": "Site",
+    "useremail": "User Email",
+    "userjobtitle": "User Jobtitle",
     "department": "Department",
     "location": "Location",
-    "product type": "Product Type",
-    "asset tag": "Asset Tag",
-    "serial number": "Serial Number",
-    "asset name": "Asset Name",
-    "asset state": "Asset State"
+    "site": "Site",
+    "yearofpurchase": "Year Of Purchase",
+    "warrantyexpiry": "Warranty Expiry",
+    "place": "Place"
 }
 
 # ============ FUNCTIONS ============
@@ -49,7 +55,7 @@ def detect_header_row(excel_file, sheet_name):
     preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=5)
     for i, row in preview.iterrows():
         values = row.astype(str).str.lower().tolist()
-        if any("asset name" in v for v in values):
+        if any("model" in v or "serial number" in v for v in values):
             return i
     return 0
 
@@ -91,6 +97,18 @@ def validate_data(df):
                 "type": "Duplicate Serial Numbers",
                 "count": len(dup_serials),
                 "details": f"Found {len(dup_serials)} duplicate serial numbers",
+                "severity": "high"
+            })
+    
+    # Check duplicate Service Tags
+    if "Service Tag" in df.columns:
+        duplicates = df[df["Service Tag"].duplicated(keep=False) & df["Service Tag"].notna()]
+        if not duplicates.empty:
+            dup_service = duplicates["Service Tag"].unique()
+            issues.append({
+                "type": "Duplicate Service Tags",
+                "count": len(dup_service),
+                "details": f"Found {len(dup_service)} duplicate service tags",
                 "severity": "high"
             })
     
@@ -138,6 +156,17 @@ def validate_data(df):
                 "count": missing_loc,
                 "details": f"{missing_loc} assets without location",
                 "severity": "medium"
+            })
+    
+    # Check missing Model
+    if "Model" in df.columns:
+        missing_model = df[df["Model"].isna() | (df["Model"] == "")].shape[0]
+        if missing_model > 0:
+            issues.append({
+                "type": "Missing Model",
+                "count": missing_model,
+                "details": f"{missing_model} assets without model information",
+                "severity": "high"
             })
     
     return issues
@@ -196,6 +225,14 @@ def sidebar_controls(df):
         default=df["Category"].unique()
     )
     
+    # Workstation Type filter
+    type_filter = []
+    if "Workstation Type" in df.columns:
+        type_filter = st.sidebar.multiselect(
+            "💻 Workstation Type", 
+            df["Workstation Type"].unique()
+        )
+    
     # Site filter
     site_filter = []
     if "Site" in df.columns:
@@ -220,26 +257,26 @@ def sidebar_controls(df):
             df["Department"].unique()
         )
     
-    # Product Type filter
-    type_filter = []
-    if "Product Type" in df.columns:
-        type_filter = st.sidebar.multiselect(
-            "💻 Product Type", 
-            df["Product Type"].unique()
+    # Workstation Status filter
+    status_filter = []
+    if "Workstation Status" in df.columns:
+        status_filter = st.sidebar.multiselect(
+            "📦 Workstation Status", 
+            df["Workstation Status"].unique()
         )
     
-    # Asset State filter
+    # State filter
     state_filter = []
-    if "Asset State" in df.columns:
+    if "State" in df.columns:
         state_filter = st.sidebar.multiselect(
-            "📦 Asset State", 
-            df["Asset State"].unique()
+            "🔄 State", 
+            df["State"].unique()
         )
 
     # Expired assets selection
     expired_models = st.sidebar.multiselect(
-        "⚠️ Expired / Replacement (by Asset Name)",
-        options=df["Asset Name"].unique(),
+        "⚠️ Expired / Replacement (by Model)",
+        options=df["Model"].unique(),
         help="Pilih assets yang sudah expired untuk replacement"
     )
 
@@ -248,6 +285,9 @@ def sidebar_controls(df):
     
     if category_filter:
         filtered_df = filtered_df[filtered_df["Category"].isin(category_filter)]
+    
+    if type_filter:
+        filtered_df = filtered_df[filtered_df["Workstation Type"].isin(type_filter)]
     
     if site_filter:
         filtered_df = filtered_df[filtered_df["Site"].isin(site_filter)]
@@ -258,19 +298,19 @@ def sidebar_controls(df):
     if dept_filter:
         filtered_df = filtered_df[filtered_df["Department"].isin(dept_filter)]
     
-    if type_filter:
-        filtered_df = filtered_df[filtered_df["Product Type"].isin(type_filter)]
+    if status_filter:
+        filtered_df = filtered_df[filtered_df["Workstation Status"].isin(status_filter)]
     
     if state_filter:
-        filtered_df = filtered_df[filtered_df["Asset State"].isin(state_filter)]
+        filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
 
     # Extract expired assets
     expired_df = None
     if expired_models:
-        expired_df = filtered_df[filtered_df["Asset Name"].isin(expired_models)]
+        expired_df = filtered_df[filtered_df["Model"].isin(expired_models)]
 
     # Search bar
-    search_query = st.sidebar.text_input("🔎 Search (User / Asset / Serial Number)")
+    search_query = st.sidebar.text_input("🔎 Search (User / Model / Serial Number)")
     if search_query:
         filtered_df = filtered_df[filtered_df.apply(
             lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1
@@ -426,19 +466,19 @@ if uploaded_file is not None:
     new_columns = {}
     for key, std_name in required_columns.items():
         for norm_col, original_col in colmap.items():
-            if key.replace(" ", "") in norm_col:
+            if key in norm_col:
                 new_columns[original_col] = std_name
 
     df = df.rename(columns=new_columns)
 
-    # Check if Asset Name exists
-    if "Asset Name" not in df.columns:
-        st.error("❌ Column 'Asset Name' tidak dijumpai.")
+    # Check if Model exists
+    if "Model" not in df.columns:
+        st.error("❌ Column 'Model' tidak dijumpai.")
     else:
-        # Assign categories based on Asset Name
+        # Assign categories based on Model
         df["Category"] = "Other"
         for category, keywords in category_keywords.items():
-            mask = df["Asset Name"].str.lower().str.contains("|".join(keywords), na=False)
+            mask = df["Model"].str.lower().str.contains("|".join(keywords), na=False)
             df.loc[mask, "Category"] = category
 
         # Inject custom CSS
