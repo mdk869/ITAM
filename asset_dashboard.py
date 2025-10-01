@@ -464,12 +464,11 @@ if uploaded_file is not None:
         
         # Manual override option
         st.sidebar.markdown("---")
-        use_manual = st.sidebar.checkbox("🔧 Manual Header Row Selection", value=False)
+        st.sidebar.markdown("### 🔧 Header Settings")
+        use_manual = st.sidebar.checkbox("Manual Header Row Selection", value=False)
         if use_manual:
-            header_row = st.sidebar.number_input("Header Row (0-based index)", min_value=0, max_value=20, value=header_row)
-            st.sidebar.info(f"Using row {header_row} as header")
-        else:
-            st.sidebar.info(f"Auto-detected header at row {header_row}")
+            header_row = st.sidebar.number_input("Header Row (0-based)", min_value=0, max_value=20, value=header_row)
+            st.sidebar.success(f"✓ Using row {header_row} as header")
 
         # Read Excel
         uploaded_file.seek(0)  # Reset again
