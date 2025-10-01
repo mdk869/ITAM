@@ -608,6 +608,18 @@ if uploaded_file is not None:
             st.subheader("📋 Asset Details")
             safe_columns = list(dict.fromkeys(list(new_columns.values()) + ["Category"]))
             st.dataframe(df_filtered[safe_columns], use_container_width=True)
+    
+    except Exception as e:
+        st.error(f"❌ Error reading Excel file: {str(e)}")
+        st.warning("💡 **Troubleshooting Tips:**")
+        st.markdown("""
+        1. **Cuba buka file dalam Excel** dan save semula sebagai .xlsx
+        2. **Check file size** - pastikan tidak terlalu besar
+        3. **Remove password protection** jika ada
+        4. **Copy data ke Excel baru** dan save
+        5. **Pastikan file tidak corrupt** - cuba buka dalam Excel dulu
+        """)
+        st.stop()
 
 else:
     st.info("📂 Sila upload fail Excel untuk mula.")
