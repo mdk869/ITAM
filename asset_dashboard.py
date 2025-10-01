@@ -844,12 +844,19 @@ if uploaded_file is not None:
         st.error(f"❌ Error reading Excel file: {str(e)}")
         st.warning("💡 **Troubleshooting Tips:**")
         st.markdown("""
-        1. **Cuba buka file dalam Excel** dan save semula sebagai .xlsx
-        2. **Check file size** - pastikan tidak terlalu besar
-        3. **Remove password protection** jika ada
-        4. **Copy data ke Excel baru** dan save
-        5. **Pastikan file tidak corrupt** - cuba buka dalam Excel dulu
+        1. **Pastikan file di export dari sistem ITSD dengan format .xlsx**
+        2. **Fail Excel MESTI ada header row standard seperti berikut:**
+
+            `Workstation Type | Serial Number | Model | Workstation Status | Asset Tag | State | User | User Email | User Employee ID | User Jobtitle | Department | Location | Site | Year Of Purchase | Warranty Expiry | Place`
+
+            ⚠️ Jika tiada header seperti di atas, sistem ini tidak akan dapat membaca data dengan betul.
+        3. **Cuba buka file dalam Excel** dan save semula sebagai .xlsx
+        4. **Check file size** - pastikan tidak terlalu besar
+        5. **Remove password protection** jika ada
+        6. **Copy data ke Excel baru** dan save
+        7. **Pastikan file tidak corrupt** - cuba buka dalam Excel dulu
         """)
+
 
 else:
     st.info("📂 Sila upload fail Excel untuk mula.")
