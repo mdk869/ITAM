@@ -50,6 +50,112 @@ def normalize_columns(columns):
         normalized[key] = col
     return normalized
 
+def calculate_asset_age(df):
+    """Calculate asset age dari Year Of Purchase"""
+    if "Year Of Purchase" in df.columns:
+        current_year = pd.Timestamp.now().year
+        try:
+            df["Asset Age"] = current_year - pd.to_numeric(df["Year Of Purchase"], errors='coerce')
+            df["Asset Age"] = df["Asset Age"].fillna(0).astype(int)
+        except:
+            df["Asset Age"] = 0
+    else:
+        df["Asset Age"] = 0
+    return df
+
+def get_warranty_status(df):
+    """Get warranty status and expired assets"""
+    if "Warranty Expiry" not in df.columns:
+        return df, None
+
+    try:
+        df_temp = df.copy()
+        df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp["Warranty Expiry"], errors='coerce')
+
+        today = pd.Timestamp.now()
+        df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
+
+        df_temp["Warranty Status"] = "Unknown"
+        df_temp.loc[df_temp["Days to Expiry"] < 0, "Warranty Status"] = "Expired"
+        df_temp.loc[(df_temp["Days to Expiry"] >= 0) & (df_temp["Days to Expiry"] <= 90), "Warranty Status"] = "Expiring Soon"
+        df_temp.loc[df_temp["Days to Expiry"] > 90, "Warranty Status"] = "Active"
+
+        expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
+
+        return df_temp, expired_warranty_df
+    except:
+        return df, None
+
+def show_warranty_summary(df):
+    """Show warranty status summary"""
+    if "Warranty Status" not in df.columns:
+        return
+
+    status_counts = df["Warranty Status"].value_counts()
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        expired = status_counts.get("Expired", 0)
+        st.markdown(f"""
+            <div class="card red">
+                ⚠️ <br/> Expired Warranty <br/><h2>{expired}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        expiring = status_counts.get("Expiring Soon", 0)
+        st.markdown(f"""
+            <div class="card orange">
+                ⏰ <br/> Expiring Soon (90 days) <br/><h2>{expiring}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        active = status_counts.get("Active", 0)
+        st.markdown(f"""
+            <div class="card green">
+                ✅ <br/> Active Warranty <br/><h2>{active}</h2>
+            </div>
+        """, unsafe_allow_html=True)
+
+def show_asset_age_summary(df):
+    """Show asset age distribution"""
+    if "Asset Age" not in df.columns or df["Asset Age"].sum() == 0:
+        return
+
+    df_temp = df.copy()
+    df_temp["Age Category"] = "Unknown"
+    df_temp.loc[df_temp["Asset Age"] <= 1, "Age Category"] = "New (0-1 year)"
+    df_temp.loc[(df_temp["Asset Age"] > 1) & (df_temp["Asset Age"] <= 3), "Age Category"] = "Active (1-3 years)"
+    df_temp.loc[(df_temp["Asset Age"] > 3) & (df_temp["Asset Age"] <= 5), "Age Category"] = "Aging (3-5 years)"
+    df_temp.loc[df_temp["Asset Age"] > 5, "Age Category"] = "Old (5+ years)"
+
+    age_counts = df_temp["Age Category"].value_counts()
+
+    avg_age = df_temp[df_temp["Asset Age"] > 0]["Asset Age"].mean()
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        st.metric("Average Age", f"{avg_age:.1f} years" if not pd.isna(avg_age) else "N/A")
+
+    with col2:
+        new = age_counts.get("New (0-1 year)", 0)
+        st.metric("New (0-1yr)", new)
+
+    with col3:
+        active = age_counts.get("Active (1-3 years)", 0)
+        st.metric("Active (1-3yr)", active)
+
+    with col4:
+        aging = age_counts.get("Aging (3-5 years)", 0)
+        st.metric("Aging (3-5yr)", aging)
+
+    with col5:
+        old = age_counts.get("Old (5+ years)", 0)
+        st.metric("Old (5+yr)", old)
+
 def detect_header_row(excel_file, sheet_name):
     """Auto-detect header row dalam Excel with better scanning"""
     try:
