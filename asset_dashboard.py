@@ -410,8 +410,16 @@ def sidebar_controls(df):
     state_filter = []
     if "State" in df.columns:
         state_filter = st.sidebar.multiselect(
-            "🔄 State", 
+            "🔄 State",
             df["State"].unique()
+        )
+
+    # Place filter
+    place_filter = []
+    if "Place" in df.columns:
+        place_filter = st.sidebar.multiselect(
+            "🌍 Place",
+            df["Place"].unique()
         )
 
     # Expired assets selection
@@ -423,27 +431,30 @@ def sidebar_controls(df):
 
     # Apply filters
     filtered_df = df.copy()
-    
+
     if category_filter:
         filtered_df = filtered_df[filtered_df["Category"].isin(category_filter)]
-    
+
     if type_filter:
         filtered_df = filtered_df[filtered_df["Workstation Type"].isin(type_filter)]
-    
+
     if site_filter:
         filtered_df = filtered_df[filtered_df["Site"].isin(site_filter)]
-    
+
     if location_filter:
         filtered_df = filtered_df[filtered_df["Location"].isin(location_filter)]
-    
+
     if dept_filter:
         filtered_df = filtered_df[filtered_df["Department"].isin(dept_filter)]
-    
+
     if status_filter:
         filtered_df = filtered_df[filtered_df["Workstation Status"].isin(status_filter)]
-    
+
     if state_filter:
         filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
+
+    if place_filter:
+        filtered_df = filtered_df[filtered_df["Place"].isin(place_filter)]
 
     # Extract expired assets
     expired_df = None
