@@ -870,9 +870,7 @@ if uploaded_file is not None:
             st.markdown("""
             **Need Help?**
             
-            📧 Email: support@itasset.com  
-            🌐 Documentation: [User Guide](#)  
-            💬 Feedback: [Submit Feedback](#)
+            📧 Email: khalis.abdrahim@airselangor.com  
             
             **Response Time:**  
             Mon-Fri: Within 24 hours  
@@ -887,8 +885,6 @@ if uploaded_file is not None:
                 Version 2.0.1<br/>
                 Last Updated: Oct 2025<br/>
                 <br/>
-                © 2025 IT Asset Management<br/>
-                Built with ❤️ using Streamlit
             </div>
         """, unsafe_allow_html=True)
 
