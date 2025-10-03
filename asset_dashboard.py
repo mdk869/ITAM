@@ -839,6 +839,58 @@ if uploaded_file is not None:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         help="Export expired warranty"
                     )
+        
+        # HELP & SUPPORT SECTION
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 💡 Help & Support")
+        
+        with st.sidebar.expander("🆘 Troubleshooting", expanded=False):
+            st.markdown("""
+            **Common Issues:**
+            
+            🔴 **Model column not found**
+            - Ensure Excel has 'Model' (Workstation) or 'Product' (Mobile) column
+            
+            🔴 **Error reading file**
+            - Save file as .xlsx format
+            - Remove password protection
+            - Close file in Excel before upload
+            
+            🔴 **Wrong asset type detected**
+            - Check column names match expected format
+            - Use manual header row selection if needed
+            
+            🔴 **Data not showing correctly**
+            - Verify header row is correct
+            - Check for merged cells in Excel
+            - Ensure data starts immediately after header
+            """)
+        
+        with st.sidebar.expander("📧 Contact Support", expanded=False):
+            st.markdown("""
+            **Need Help?**
+            
+            📧 Email: support@itasset.com  
+            🌐 Documentation: [User Guide](#)  
+            💬 Feedback: [Submit Feedback](#)
+            
+            **Response Time:**  
+            Mon-Fri: Within 24 hours  
+            Weekend: Within 48 hours
+            """)
+        
+        # FOOTER / VERSION INFO
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("""
+            <div style='text-align: center; color: #666; font-size: 0.85em;'>
+                <strong>IT Asset Dashboard</strong><br/>
+                Version 2.0.1<br/>
+                Last Updated: Oct 2025<br/>
+                <br/>
+                © 2025 IT Asset Management<br/>
+                Built with ❤️ using Streamlit
+            </div>
+        """, unsafe_allow_html=True)
 
         # Summary cards
         st.subheader("📊 Dashboard Summary")
