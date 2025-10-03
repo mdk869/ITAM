@@ -9,44 +9,75 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="IT Asset Management Dashboard", layout="wide")
 st.title("💻 IT Asset Management Dashboard")
 
-# Category mapping removed - using Model directly
+# ============ COLUMN IDENTIFIERS (for detection only, NOT for renaming) ============
+WORKSTATION_IDENTIFIERS = [
+    "workstation", "model", "warranty", "place"
+]
 
-# ============ REQUIRED COLUMNS ============
-required_columns = {
-    "workstationtype": "Workstation Type",
-    "serialnumber": "Serial Number",
-    "model": "Model",
-    "workstationstatus": "Workstation Status",
-    "assettag": "Asset Tag",
-    "state": "State",
-    "useremployeeid": "User Employee ID",
-    "user": "User",
-    "useremail": "User Email",
-    "userjobtitle": "User Jobtitle",
-    "department": "Department",
-    "location": "Location",
-    "site": "Site",
-    "yearofpurchase": "Year Of Purchase",
-    "warrantyexpiry": "Warranty Expiry",
-    "place": "Place"
-}
+MOBILE_IDENTIFIERS = [
+    "product", "programme", "program"
+]
 
 # ============ FUNCTIONS ============
 
-def normalize_columns(columns):
-    """Normalize column names untuk matching"""
-    normalized = {}
-    for col in columns:
-        key = re.sub(r'[^a-z0-9]', '', col.lower())
-        normalized[key] = col
-    return normalized
+def normalize_text(text):
+    """Normalize text untuk matching - remove special chars and lowercase"""
+    return re.sub(r'[^a-z0-9]', '', str(text).lower())
+
+def detect_asset_type(df_columns):
+    """Auto-detect asset type (Workstation or Mobile) based on headers"""
+    normalized = [normalize_text(col) for col in df_columns]
+    
+    # Count matching identifiers for each type
+    workstation_score = sum(1 for identifier in WORKSTATION_IDENTIFIERS 
+                           if any(identifier in norm for norm in normalized))
+    mobile_score = sum(1 for identifier in MOBILE_IDENTIFIERS 
+                      if any(identifier in norm for norm in normalized))
+    
+    if workstation_score > mobile_score:
+        return "Workstation"
+    else:
+        return "Mobile"
+
+def find_column(df, search_terms):
+    """Find column by searching for terms (case insensitive, flexible matching)"""
+    if isinstance(search_terms, str):
+        search_terms = [search_terms]
+    
+    for col in df.columns:
+        normalized_col = normalize_text(col)
+        for term in search_terms:
+            normalized_term = normalize_text(term)
+            if normalized_term in normalized_col:
+                return col
+    return None
+
+def get_model_column(df, asset_type):
+    """Get the model column based on asset type"""
+    if asset_type == "Workstation":
+        return find_column(df, ["model"])
+    else:  # Mobile
+        # For mobile, "Product" is the model (not "Product Type")
+        for col in df.columns:
+            normalized = normalize_text(col)
+            if normalized == "product":  # Exact match untuk avoid "product type"
+                return col
+    return None
+
+def get_type_column(df, asset_type):
+    """Get the type column based on asset type"""
+    if asset_type == "Workstation":
+        return find_column(df, ["workstation type", "workstationtype"])
+    else:  # Mobile
+        return find_column(df, ["product type", "producttype"])
 
 def calculate_asset_age(df):
     """Calculate asset age dari Year Of Purchase"""
-    if "Year Of Purchase" in df.columns:
+    year_col = find_column(df, ["year of purchase", "yearofpurchase"])
+    if year_col:
         current_year = pd.Timestamp.now().year
         try:
-            df["Asset Age"] = current_year - pd.to_numeric(df["Year Of Purchase"], errors='coerce')
+            df["Asset Age"] = current_year - pd.to_numeric(df[year_col], errors='coerce')
             df["Asset Age"] = df["Asset Age"].fillna(0).astype(int)
         except:
             df["Asset Age"] = 0
@@ -56,12 +87,13 @@ def calculate_asset_age(df):
 
 def get_warranty_status(df):
     """Get warranty status and expired assets"""
-    if "Warranty Expiry" not in df.columns:
+    warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
+    if not warranty_col:
         return df, None
 
     try:
         df_temp = df.copy()
-        df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp["Warranty Expiry"], errors='coerce')
+        df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
 
         today = pd.Timestamp.now()
         df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
@@ -77,7 +109,7 @@ def get_warranty_status(df):
     except:
         return df, None
 
-def show_warranty_summary(df):
+def show_warranty_summary(df, model_col):
     """Show warranty status summary with expandable tables"""
     if "Warranty Status" not in df.columns:
         return
@@ -110,32 +142,34 @@ def show_warranty_summary(df):
             </div>
         """, unsafe_allow_html=True)
 
-    # Expandable sections for each warranty status
     st.markdown("---")
+
+    serial_col = find_column(df, ["serial number", "serialnumber"])
+    user_col = find_column(df, ["user"])
+    dept_col = find_column(df, ["department", "user department"])
+    location_col = find_column(df, ["location"])
+    warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
 
     # Expired warranty list
     expired_df = df[df["Warranty Status"] == "Expired"]
     if not expired_df.empty:
         with st.expander(f"⚠️ Expired Warranty Assets ({len(expired_df)})", expanded=False):
-            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
-            available_cols = [col for col in display_cols if col in expired_df.columns]
-            st.dataframe(expired_df[available_cols], use_container_width=True, hide_index=True)
+            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
+            st.dataframe(expired_df[display_cols], use_container_width=True, hide_index=True)
 
     # Expiring soon list
     expiring_df = df[df["Warranty Status"] == "Expiring Soon"]
     if not expiring_df.empty:
         with st.expander(f"⏰ Expiring Soon Assets ({len(expiring_df)})", expanded=False):
-            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
-            available_cols = [col for col in display_cols if col in expiring_df.columns]
-            st.dataframe(expiring_df[available_cols], use_container_width=True, hide_index=True)
+            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
+            st.dataframe(expiring_df[display_cols], use_container_width=True, hide_index=True)
 
     # Active warranty list
     active_df = df[df["Warranty Status"] == "Active"]
     if not active_df.empty:
         with st.expander(f"✅ Active Warranty Assets ({len(active_df)})", expanded=False):
-            display_cols = ["Model", "Serial Number", "User", "Department", "Location", "Warranty Expiry"]
-            available_cols = [col for col in display_cols if col in active_df.columns]
-            st.dataframe(active_df[available_cols], use_container_width=True, hide_index=True)
+            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
+            st.dataframe(active_df[display_cols], use_container_width=True, hide_index=True)
 
 def show_asset_age_summary(df):
     """Show asset age distribution"""
@@ -150,209 +184,160 @@ def show_asset_age_summary(df):
     df_temp.loc[df_temp["Asset Age"] > 5, "Age Category"] = "Old (5+ years)"
 
     age_counts = df_temp["Age Category"].value_counts()
-
     avg_age = df_temp[df_temp["Asset Age"] > 0]["Asset Age"].mean()
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.metric("Average Age", f"{avg_age:.1f} years" if not pd.isna(avg_age) else "N/A")
-
     with col2:
-        new = age_counts.get("New (0-1 year)", 0)
-        st.metric("New (0-1yr)", new)
-
+        st.metric("New (0-1yr)", age_counts.get("New (0-1 year)", 0))
     with col3:
-        active = age_counts.get("Active (1-3 years)", 0)
-        st.metric("Active (1-3yr)", active)
-
+        st.metric("Active (1-3yr)", age_counts.get("Active (1-3 years)", 0))
     with col4:
-        aging = age_counts.get("Aging (3-5 years)", 0)
-        st.metric("Aging (3-5yr)", aging)
-
+        st.metric("Aging (3-5yr)", age_counts.get("Aging (3-5 years)", 0))
     with col5:
-        old = age_counts.get("Old (5+ years)", 0)
-        st.metric("Old (5+yr)", old)
+        st.metric("Old (5+yr)", age_counts.get("Old (5+ years)", 0))
 
 def detect_header_row(excel_file, sheet_name):
-    """Auto-detect header row dalam Excel with better scanning"""
+    """Auto-detect header row dalam Excel"""
     try:
-        # Read more rows to scan
         preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=15, engine='openpyxl')
         
+        keywords = [
+            "model", "serial", "user", "department", 
+            "asset", "workstation", "location", "site",
+            "computer", "employee", "email", "product",
+            "mobile", "programme", "program"
+        ]
+        
         for i, row in preview.iterrows():
-            # Convert row to lowercase strings
             values = row.astype(str).str.lower().str.strip().tolist()
-            
-            # Count how many expected keywords we find
-            keywords = [
-                "model", "serial", "user", "department", 
-                "asset", "workstation", "location", "site",
-                "computer", "employee", "email"
-            ]
-            
             matches = sum(1 for v in values if any(keyword in v for keyword in keywords))
             
-            # If we find 3+ keywords, this is likely the header row
             if matches >= 3:
                 return i
         
-        # If no clear header found, return 0
         return 0
     except:
         return 0
 
-def make_unique_columns(columns):
-    """Buat column names yang unik"""
-    seen = {}
-    new_cols = []
-    for col in columns:
-        if col in seen:
-            seen[col] += 1
-            new_cols.append(f"{col}.{seen[col]}")
-        else:
-            seen[col] = 0
-            new_cols.append(col)
-    return new_cols
-
-def validate_data(df):
-    """Validate data dan return issues with affected data"""
+def validate_data(df, asset_type, model_col):
+    """Validate data dan return issues"""
     issues = []
 
+    asset_tag_col = find_column(df, ["asset tag", "assettag"])
+    serial_col = find_column(df, ["serial number", "serialnumber"])
+    user_col = find_column(df, ["user"])
+    email_col = find_column(df, ["email"])
+    dept_col = find_column(df, ["department", "user department"])
+    location_col = find_column(df, ["location"])
+
     # Check duplicate Asset Tags
-    if "Asset Tag" in df.columns:
-        duplicates = df[df["Asset Tag"].duplicated(keep=False) & df["Asset Tag"].notna()]
+    if asset_tag_col:
+        duplicates = df[df[asset_tag_col].duplicated(keep=False) & df[asset_tag_col].notna()]
         if not duplicates.empty:
-            dup_tags = duplicates["Asset Tag"].unique()
+            dup_tags = duplicates[asset_tag_col].unique()
+            display_cols = [c for c in [asset_tag_col, model_col, serial_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Asset Tags",
                 "count": len(dup_tags),
                 "details": f"Found {len(dup_tags)} duplicate asset tags",
                 "severity": "high",
-                "data": duplicates[["Asset Tag", "Model", "Serial Number", "User"]].sort_values("Asset Tag")
+                "data": duplicates[display_cols].sort_values(asset_tag_col)
             })
 
     # Check duplicate Serial Numbers
-    if "Serial Number" in df.columns:
-        duplicates = df[df["Serial Number"].duplicated(keep=False) & df["Serial Number"].notna()]
+    if serial_col:
+        duplicates = df[df[serial_col].duplicated(keep=False) & df[serial_col].notna()]
         if not duplicates.empty:
-            dup_serials = duplicates["Serial Number"].unique()
+            dup_serials = duplicates[serial_col].unique()
+            display_cols = [c for c in [serial_col, model_col, asset_tag_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Serial Numbers",
                 "count": len(dup_serials),
                 "details": f"Found {len(dup_serials)} duplicate serial numbers",
                 "severity": "high",
-                "data": duplicates[["Serial Number", "Model", "Asset Tag", "User"]].sort_values("Serial Number")
-            })
-
-    # Check duplicate Service Tags
-    if "Service Tag" in df.columns:
-        duplicates = df[df["Service Tag"].duplicated(keep=False) & df["Service Tag"].notna()]
-        if not duplicates.empty:
-            dup_service = duplicates["Service Tag"].unique()
-            issues.append({
-                "type": "Duplicate Service Tags",
-                "count": len(dup_service),
-                "details": f"Found {len(dup_service)} duplicate service tags",
-                "severity": "high",
-                "data": duplicates[["Service Tag", "Model", "Asset Tag", "User"]].sort_values("Service Tag")
+                "data": duplicates[display_cols].sort_values(serial_col)
             })
 
     # Check missing User info
-    if "User" in df.columns:
-        missing_users = df[df["User"].isna() | (df["User"] == "")]
+    if user_col:
+        missing_users = df[df[user_col].isna() | (df[user_col] == "")]
         if not missing_users.empty:
-            display_cols = ["Asset Tag", "Model", "Serial Number", "Department", "Location"]
-            available_cols = [col for col in display_cols if col in missing_users.columns]
+            display_cols = [c for c in [asset_tag_col, model_col, serial_col, dept_col, location_col] if c]
             issues.append({
                 "type": "Missing User Assignment",
                 "count": len(missing_users),
                 "details": f"{len(missing_users)} assets without assigned users",
                 "severity": "medium",
-                "data": missing_users[available_cols]
+                "data": missing_users[display_cols]
             })
 
     # Check invalid email format
-    if "User Email" in df.columns:
+    if email_col:
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-        invalid_emails = df[df["User Email"].notna() &
-                           ~df["User Email"].astype(str).str.match(email_pattern)]
+        invalid_emails = df[df[email_col].notna() & ~df[email_col].astype(str).str.match(email_pattern)]
         if not invalid_emails.empty:
-            display_cols = ["User", "User Email", "Asset Tag", "Model"]
-            available_cols = [col for col in display_cols if col in invalid_emails.columns]
+            display_cols = [c for c in [user_col, email_col, asset_tag_col, model_col] if c]
             issues.append({
                 "type": "Invalid Email Format",
                 "count": len(invalid_emails),
                 "details": f"{len(invalid_emails)} invalid email addresses",
                 "severity": "low",
-                "data": invalid_emails[available_cols]
+                "data": invalid_emails[display_cols]
             })
 
     # Check missing Department
-    if "Department" in df.columns:
-        missing_dept = df[df["Department"].isna() | (df["Department"] == "")]
+    if dept_col:
+        missing_dept = df[df[dept_col].isna() | (df[dept_col] == "")]
         if not missing_dept.empty:
-            display_cols = ["Asset Tag", "Model", "User", "Location"]
-            available_cols = [col for col in display_cols if col in missing_dept.columns]
+            display_cols = [c for c in [asset_tag_col, model_col, user_col, location_col] if c]
             issues.append({
                 "type": "Missing Department",
                 "count": len(missing_dept),
                 "details": f"{len(missing_dept)} assets without department",
                 "severity": "medium",
-                "data": missing_dept[available_cols]
+                "data": missing_dept[display_cols]
             })
 
     # Check missing Location
-    if "Location" in df.columns:
-        missing_loc = df[df["Location"].isna() | (df["Location"] == "")]
+    if location_col:
+        missing_loc = df[df[location_col].isna() | (df[location_col] == "")]
         if not missing_loc.empty:
-            display_cols = ["Asset Tag", "Model", "User", "Department"]
-            available_cols = [col for col in display_cols if col in missing_loc.columns]
+            display_cols = [c for c in [asset_tag_col, model_col, user_col, dept_col] if c]
             issues.append({
                 "type": "Missing Location",
                 "count": len(missing_loc),
                 "details": f"{len(missing_loc)} assets without location",
                 "severity": "medium",
-                "data": missing_loc[available_cols]
+                "data": missing_loc[display_cols]
             })
 
-    # Check missing Model
-    if "Model" in df.columns:
-        missing_model = df[df["Model"].isna() | (df["Model"] == "")]
-        if not missing_model.empty:
-            display_cols = ["Asset Tag", "Serial Number", "User", "Department"]
-            available_cols = [col for col in display_cols if col in missing_model.columns]
-            issues.append({
-                "type": "Missing Model",
-                "count": len(missing_model),
-                "details": f"{len(missing_model)} assets without model information",
-                "severity": "high",
-                "data": missing_model[available_cols]
-            })
-
-    # Check expired warranties
-    if "Warranty Expiry" in df.columns:
-        try:
-            df_temp = df.copy()
-            df_temp["Warranty Expiry"] = pd.to_datetime(df_temp["Warranty Expiry"], errors='coerce')
-            expired_warranty = df_temp[df_temp["Warranty Expiry"] < pd.Timestamp.now()]
-            if not expired_warranty.empty:
-                display_cols = ["Asset Tag", "Model", "User", "Warranty Expiry"]
-                available_cols = [col for col in display_cols if col in expired_warranty.columns]
-                issues.append({
-                    "type": "Expired Warranties",
-                    "count": len(expired_warranty),
-                    "details": f"{len(expired_warranty)} assets with expired warranties",
-                    "severity": "medium",
-                    "data": expired_warranty[available_cols]
-                })
-        except:
-            pass
+    # Check expired warranties (only for Workstation)
+    if asset_type == "Workstation":
+        warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
+        if warranty_col:
+            try:
+                df_temp = df.copy()
+                df_temp[warranty_col] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
+                expired_warranty = df_temp[df_temp[warranty_col] < pd.Timestamp.now()]
+                if not expired_warranty.empty:
+                    display_cols = [c for c in [asset_tag_col, model_col, user_col, warranty_col] if c]
+                    issues.append({
+                        "type": "Expired Warranties",
+                        "count": len(expired_warranty),
+                        "details": f"{len(expired_warranty)} assets with expired warranties",
+                        "severity": "medium",
+                        "data": expired_warranty[display_cols]
+                    })
+            except:
+                pass
 
     return issues
 
 def show_validation_issues(issues):
-    """Display validation issues with affected data"""
+    """Display validation issues"""
     if not issues:
         st.success("✅ No data validation issues found!")
         return
@@ -363,7 +348,6 @@ def show_validation_issues(issues):
         severity_emoji = "🔴" if issue["severity"] == "high" else "🟡" if issue["severity"] == "medium" else "🟢"
         with st.expander(f"{severity_emoji} {issue['type']} ({issue['count']})", expanded=False):
             st.write(issue['details'])
-
             if "data" in issue and not issue["data"].empty:
                 st.markdown("**Affected Assets:**")
                 st.dataframe(issue["data"], use_container_width=True, hide_index=True)
@@ -377,7 +361,7 @@ def export_to_excel(df, filename="asset_data.xlsx"):
     return output
 
 def local_css():
-    """Inject CSS untuk custom cards dan table styling"""
+    """Inject CSS untuk custom cards"""
     st.markdown("""
         <style>
         .card {
@@ -395,116 +379,110 @@ def local_css():
         .white {background-color: #FFFFFF; color: black;}
         .red {background-color: #e74c3c;}
         .orange {background-color: #f39c12;}
+        .purple {background-color: #9b59b6;}
         </style>
     """, unsafe_allow_html=True)
 
-def sidebar_controls(df):
+def sidebar_controls(df, asset_type, model_col, type_col):
     """Sidebar untuk filters dan controls"""
     st.sidebar.markdown("## ⚙️ Asset Controls")
 
-    # Model filter
-    model_filter = st.sidebar.multiselect(
-        "📦 Model",
-        df["Model"].unique() if "Model" in df.columns else []
-    )
+    # Model/Product filter
+    model_filter = []
+    if model_col:
+        if asset_type == "Workstation":
+            filter_label = f"📦 {model_col}"
+        else:
+            filter_label = f"📦 {model_col} (Model)"
+        model_filter = st.sidebar.multiselect(filter_label, df[model_col].unique())
 
-    # Workstation Type filter
+    # Type filter
     type_filter = []
-    if "Workstation Type" in df.columns:
-        type_filter = st.sidebar.multiselect(
-            "💻 Workstation Type", 
-            df["Workstation Type"].unique()
-        )
+    if type_col:
+        if asset_type == "Workstation":
+            type_label = f"💻 {type_col}"
+        else:
+            type_label = f"📱 {type_col} (Category)"
+        type_filter = st.sidebar.multiselect(type_label, df[type_col].unique())
     
     # Site filter
+    site_col = find_column(df, ["site", "user site", "usersite"])
     site_filter = []
-    if "Site" in df.columns:
-        site_filter = st.sidebar.multiselect(
-            "🏢 Site", 
-            df["Site"].unique()
-        )
+    if site_col:
+        site_filter = st.sidebar.multiselect(f"🏢 {site_col}", df[site_col].unique())
     
     # Location filter
+    location_col = find_column(df, ["location"])
     location_filter = []
-    if "Location" in df.columns:
-        location_filter = st.sidebar.multiselect(
-            "📍 Location", 
-            df["Location"].unique()
-        )
+    if location_col:
+        location_filter = st.sidebar.multiselect(f"📍 {location_col}", df[location_col].unique())
     
     # Department filter
+    dept_col = find_column(df, ["department", "user department"])
     dept_filter = []
-    if "Department" in df.columns:
-        dept_filter = st.sidebar.multiselect(
-            "👥 Department", 
-            df["Department"].unique()
-        )
+    if dept_col:
+        dept_filter = st.sidebar.multiselect(f"👥 {dept_col}", df[dept_col].unique())
     
-    # Workstation Status filter
+    # Status filter (only for Workstation)
+    status_col = find_column(df, ["workstation status", "workstationstatus"])
     status_filter = []
-    if "Workstation Status" in df.columns:
-        status_filter = st.sidebar.multiselect(
-            "📦 Workstation Status", 
-            df["Workstation Status"].unique()
-        )
+    if asset_type == "Workstation" and status_col:
+        status_filter = st.sidebar.multiselect(f"📦 {status_col}", df[status_col].unique())
     
     # State filter
+    state_col = find_column(df, ["state"])
     state_filter = []
-    if "State" in df.columns:
-        state_filter = st.sidebar.multiselect(
-            "🔄 State",
-            df["State"].unique()
-        )
+    if state_col:
+        state_filter = st.sidebar.multiselect(f"🔄 {state_col}", df[state_col].unique())
 
-    # Place filter
+    # Place filter (only for Workstation)
+    place_col = find_column(df, ["place"])
     place_filter = []
-    if "Place" in df.columns:
-        place_filter = st.sidebar.multiselect(
-            "🌍 Place",
-            df["Place"].unique()
-        )
+    if asset_type == "Workstation" and place_col:
+        place_filter = st.sidebar.multiselect(f"🌍 {place_col}", df[place_col].unique())
+
+    # Programme filter (only for Mobile)
+    programme_col = find_column(df, ["programme", "program"])
+    programme_filter = []
+    if asset_type == "Mobile" and programme_col:
+        programme_filter = st.sidebar.multiselect(f"📱 {programme_col}", df[programme_col].unique())
 
     # Expired assets selection
-    expired_models = st.sidebar.multiselect(
-        "⚠️ Expired / Replacement (by Model)",
-        options=df["Model"].unique(),
-        help="Pilih assets yang sudah expired untuk replacement"
-    )
+    expired_models = []
+    if model_col:
+        label = f"⚠️ Expired / Replacement (by {model_col})"
+        expired_models = st.sidebar.multiselect(label, options=df[model_col].unique(),
+                                                help="Pilih assets untuk replacement")
 
     # Apply filters
     filtered_df = df.copy()
 
-    if model_filter:
-        filtered_df = filtered_df[filtered_df["Model"].isin(model_filter)]
-
-    if type_filter:
-        filtered_df = filtered_df[filtered_df["Workstation Type"].isin(type_filter)]
-
-    if site_filter:
-        filtered_df = filtered_df[filtered_df["Site"].isin(site_filter)]
-
-    if location_filter:
-        filtered_df = filtered_df[filtered_df["Location"].isin(location_filter)]
-
-    if dept_filter:
-        filtered_df = filtered_df[filtered_df["Department"].isin(dept_filter)]
-
-    if status_filter:
-        filtered_df = filtered_df[filtered_df["Workstation Status"].isin(status_filter)]
-
-    if state_filter:
-        filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
-
-    if place_filter:
-        filtered_df = filtered_df[filtered_df["Place"].isin(place_filter)]
+    if model_filter and model_col:
+        filtered_df = filtered_df[filtered_df[model_col].isin(model_filter)]
+    if type_filter and type_col:
+        filtered_df = filtered_df[filtered_df[type_col].isin(type_filter)]
+    if site_filter and site_col:
+        filtered_df = filtered_df[filtered_df[site_col].isin(site_filter)]
+    if location_filter and location_col:
+        filtered_df = filtered_df[filtered_df[location_col].isin(location_filter)]
+    if dept_filter and dept_col:
+        filtered_df = filtered_df[filtered_df[dept_col].isin(dept_filter)]
+    if status_filter and status_col:
+        filtered_df = filtered_df[filtered_df[status_col].isin(status_filter)]
+    if state_filter and state_col:
+        filtered_df = filtered_df[filtered_df[state_col].isin(state_filter)]
+    if place_filter and place_col:
+        filtered_df = filtered_df[filtered_df[place_col].isin(place_filter)]
+    if programme_filter and programme_col:
+        filtered_df = filtered_df[filtered_df[programme_col].isin(programme_filter)]
 
     # Extract expired assets
     expired_df = None
-    if expired_models:
-        expired_df = filtered_df[filtered_df["Model"].isin(expired_models)]
+    if expired_models and model_col:
+        expired_df = filtered_df[filtered_df[model_col].isin(expired_models)]
 
     # Search bar
-    search_query = st.sidebar.text_input("🔎 Search (User / Model / Serial Number)")
+    search_query = st.sidebar.text_input("🔎 Search (any field)")
     if search_query:
         filtered_df = filtered_df[filtered_df.apply(
             lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1
@@ -549,82 +527,75 @@ def show_summary_cards(df, df_expired=None):
             </div>
         """, unsafe_allow_html=True)
 
-def show_category_metrics(df):
-    """Display model breakdown metrics - scan all unique models and count units"""
-    if "Model" not in df.columns:
-        st.warning("Column 'Model' tidak dijumpai.")
+def show_category_metrics(df, model_col):
+    """Display model breakdown metrics"""
+    if not model_col:
+        st.warning("Model column not found")
         return
 
-    # Get model counts and sort by count (descending)
-    model_counts = df["Model"].value_counts().sort_values(ascending=False)
+    model_counts = df[model_col].value_counts().sort_values(ascending=False)
 
-    # Create a more readable table display
-    st.markdown("### Unit Breakdown by Model")
+    st.markdown(f"### Unit Breakdown by {model_col}")
 
-    # Convert to dataframe for better display
     model_df = pd.DataFrame({
-        "Model": model_counts.index,
+        model_col: model_counts.index,
         "Total Units": model_counts.values
     })
 
-    # Display as styled dataframe
     st.dataframe(
         model_df,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Model": st.column_config.TextColumn("Model", width="large"),
+            model_col: st.column_config.TextColumn(model_col, width="large"),
             "Total Units": st.column_config.NumberColumn("Total Units", width="small")
         }
     )
 
-def show_workstation_type_cards(df):
-    """Display workstation type breakdown as metric cards"""
-    if "Workstation Type" not in df.columns:
-        st.warning("Column 'Workstation Type' tidak dijumpai.")
+def show_type_cards(df, type_col, asset_type):
+    """Display type breakdown as metric cards"""
+    if not type_col:
         return
 
-    st.markdown("### 💻 Workstation Type Statistics")
+    if asset_type == "Workstation":
+        title = f"### 💻 {type_col} Statistics"
+    else:
+        title = f"### 📱 {type_col} Statistics (Categories)"
 
-    # Get workstation type counts
-    type_counts = df["Workstation Type"].value_counts().sort_values(ascending=False)
+    st.markdown(title)
 
-    # Calculate number of columns needed (max 4 per row)
+    type_counts = df[type_col].value_counts().sort_values(ascending=False)
     num_types = len(type_counts)
     cols_per_row = min(4, num_types)
-
-    # Create columns for cards
     cols = st.columns(cols_per_row)
-
-    # Define color classes
-    colors = ["baby-blue", "green", "navy", "orange", "red"]
+    colors = ["baby-blue", "green", "navy", "orange", "red", "purple"]
 
     for idx, (wtype, count) in enumerate(type_counts.items()):
         col_idx = idx % cols_per_row
         color = colors[idx % len(colors)]
 
         with cols[col_idx]:
+            emoji = "💻" if asset_type == "Workstation" else "📱"
             st.markdown(f"""
                 <div class="card {color}">
-                    💻 <br/> {wtype} <br/><h2>{count}</h2>
+                    {emoji} <br/> {wtype} <br/><h2>{count}</h2>
                 </div>
             """, unsafe_allow_html=True)
 
-        # Create new row if needed
         if (idx + 1) % cols_per_row == 0 and (idx + 1) < num_types:
             cols = st.columns(cols_per_row)
 
-def create_pie_chart(df):
-    """Create interactive pie chart untuk model distribution"""
-    if "Model" not in df.columns:
+def create_pie_chart(df, model_col):
+    """Create interactive pie chart"""
+    if not model_col:
         return None
 
-    model_counts = df["Model"].value_counts()
+    model_counts = df[model_col].value_counts()
 
     fig = px.pie(
         values=model_counts.values,
         names=model_counts.index,
-        title="Asset Distribution by Model",
+        title=f"Asset Distribution by {model_col}",
         hole=0.4,
         color_discrete_sequence=px.colors.qualitative.Set3
     )
@@ -635,62 +606,47 @@ def create_pie_chart(df):
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
     )
 
-    fig.update_layout(
-        showlegend=True,
-        height=400,
-        margin=dict(t=50, b=0, l=0, r=0)
-    )
-
+    fig.update_layout(showlegend=True, height=400, margin=dict(t=50, b=0, l=0, r=0))
     return fig
 
-def create_department_chart(df):
+def create_department_chart(df, dept_col):
     """Create bar chart untuk assets by department"""
-    if "Department" not in df.columns:
+    if not dept_col:
         return None
     
-    dept_counts = df["Department"].value_counts().head(10)
+    dept_counts = df[dept_col].value_counts().head(10)
     
     fig = px.bar(
         x=dept_counts.values,
         y=dept_counts.index,
         orientation='h',
-        title="Top 10 Departments by Asset Count",
-        labels={'x': 'Asset Count', 'y': 'Department'},
+        title=f"Top 10 {dept_col} by Asset Count",
+        labels={'x': 'Asset Count', 'y': dept_col},
         color=dept_counts.values,
         color_continuous_scale='Blues'
     )
     
-    fig.update_layout(
-        showlegend=False,
-        height=400,
-        margin=dict(t=50, b=50, l=0, r=0)
-    )
-    
+    fig.update_layout(showlegend=False, height=400, margin=dict(t=50, b=50, l=0, r=0))
     return fig
 
-def create_location_chart(df):
+def create_location_chart(df, location_col):
     """Create bar chart untuk assets by location"""
-    if "Location" not in df.columns:
+    if not location_col:
         return None
     
-    loc_counts = df["Location"].value_counts().head(10)
+    loc_counts = df[location_col].value_counts().head(10)
     
     fig = px.bar(
         x=loc_counts.values,
         y=loc_counts.index,
         orientation='h',
-        title="Top 10 Locations by Asset Count",
-        labels={'x': 'Asset Count', 'y': 'Location'},
+        title=f"Top 10 {location_col} by Asset Count",
+        labels={'x': 'Asset Count', 'y': location_col},
         color=loc_counts.values,
         color_continuous_scale='Greens'
     )
     
-    fig.update_layout(
-        showlegend=False,
-        height=400,
-        margin=dict(t=50, b=50, l=0, r=0)
-    )
-    
+    fig.update_layout(showlegend=False, height=400, margin=dict(t=50, b=50, l=0, r=0))
     return fig
 
 # ============ MAIN APP ============
@@ -699,9 +655,7 @@ uploaded_file = st.file_uploader("📂 Upload Excel File (.xlsx)", type=["xlsx"]
 
 if uploaded_file is not None:
     try:
-        # Reset file pointer
         uploaded_file.seek(0)
-        
         xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
         sheet_names = xls.sheet_names
         selected_sheet = st.sidebar.selectbox("📑 Pilih Sheet", sheet_names)
@@ -718,83 +672,94 @@ if uploaded_file is not None:
             header_row = st.sidebar.number_input("Header Row (0-based)", min_value=0, max_value=20, value=header_row)
             st.sidebar.success(f"✓ Using row {header_row} as header")
 
-        # Read Excel
+        # Read Excel - USE ORIGINAL COLUMN NAMES
         uploaded_file.seek(0)
         df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
         
-        # Make unique & normalized columns FIRST
-        df.columns = make_unique_columns([str(c).strip() for c in df.columns])
+        # Clean column names - only strip whitespace, keep original names
+        df.columns = [str(c).strip() for c in df.columns]
         
-        # Normalize all column names
-        colmap = normalize_columns(df.columns)
-
-        # Map to standard column names (avoid duplicates)
-        new_columns = {}
-        mapped_std_names = set()  # Track already mapped standard names
+        # Remove duplicate columns if any (keep first occurrence)
+        df = df.loc[:, ~df.columns.duplicated(keep='first')]
         
-        for key, std_name in required_columns.items():
-            for norm_col, original_col in colmap.items():
-                if key in norm_col and std_name not in mapped_std_names:
-                    new_columns[original_col] = std_name
-                    mapped_std_names.add(std_name)
-                    break
-
-        # Rename columns safely
-        df = df.rename(columns=new_columns)
+        # AUTO-DETECT ASSET TYPE (no renaming, just detection)
+        asset_type = detect_asset_type(df.columns)
         
-        # Remove any remaining duplicate columns
-        df = df.loc[:, ~df.columns.duplicated()]
-
-        # Check if Model exists
-        if "Model" not in df.columns:
-            st.error("❌ Column 'Model' tidak dijumpai dalam file Excel.")
-            st.info("📋 Pastikan Excel file ada column dengan nama 'Model'")
+        # Display detected asset type
+        if asset_type == "Workstation":
+            st.sidebar.success(f"✅ Detected: **{asset_type}** Assets 💻")
         else:
-            # Calculate asset age
-            df = calculate_asset_age(df)
-            
-            # Get warranty status
+            st.sidebar.success(f"✅ Detected: **{asset_type}** Assets 📱")
+        
+        # Show original columns found
+        with st.sidebar.expander("📋 Excel Columns Found", expanded=False):
+            st.write(f"**Total columns:** {len(df.columns)}")
+            for idx, col in enumerate(df.columns, 1):
+                st.text(f"{idx}. {col}")
+        
+        # Find key columns (without renaming)
+        model_col = get_model_column(df, asset_type)
+        type_col = get_type_column(df, asset_type)
+        
+        if not model_col:
+            st.error(f"❌ Model column tidak dijumpai dalam file Excel.")
+            if asset_type == "Workstation":
+                st.info("📋 Pastikan Excel ada column 'Model'")
+            else:
+                st.info("📋 Pastikan Excel ada column 'Product' (untuk model device)")
+            st.stop()
+        
+        # Calculate asset age
+        df = calculate_asset_age(df)
+        
+        # Get warranty status (only for Workstation)
+        expired_warranty_df = None
+        if asset_type == "Workstation":
             df, expired_warranty_df = get_warranty_status(df)
 
-            # Inject custom CSS
-            local_css()
+        # Inject custom CSS
+        local_css()
 
-            # DATA VALIDATION SECTION
-            st.markdown("---")
-            with st.expander("🔍 Data Validation Report", expanded=False):
-                issues = validate_data(df)
-                show_validation_issues(issues)
+        # DATA VALIDATION SECTION
+        st.markdown("---")
+        with st.expander("🔍 Data Validation Report", expanded=False):
+            issues = validate_data(df, asset_type, model_col)
+            show_validation_issues(issues)
 
-            # Sidebar filters and controls
-            df_filtered, df_expired = sidebar_controls(df)
+        # Sidebar filters and controls
+        df_filtered, df_expired = sidebar_controls(df, asset_type, model_col, type_col)
 
-            # EXPORT SECTION
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("## 📥 Export Data")
-            
+        # EXPORT SECTION
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("## 📥 Export Data")
+        
+        if asset_type == "Workstation":
             col_exp1, col_exp2, col_exp3 = st.sidebar.columns(3)
-            
-            with col_exp1:
-                excel_data = export_to_excel(df_filtered)
+        else:
+            col_exp1, col_exp2 = st.sidebar.columns(2)
+        
+        with col_exp1:
+            excel_data = export_to_excel(df_filtered)
+            st.download_button(
+                label="📊 All",
+                data=excel_data,
+                file_name=f"{asset_type.lower()}_assets_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Export filtered data"
+            )
+        
+        with col_exp2:
+            if df_expired is not None and not df_expired.empty:
+                excel_expired = export_to_excel(df_expired)
                 st.download_button(
-                    label="📊 All",
-                    data=excel_data,
-                    file_name=f"assets_filtered_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    label="⚠️ Expired",
+                    data=excel_expired,
+                    file_name=f"{asset_type.lower()}_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Export filtered data"
+                    help="Export expired assets"
                 )
-            
-            with col_exp2:
-                if df_expired is not None and not df_expired.empty:
-                    excel_expired = export_to_excel(df_expired)
-                    st.download_button(
-                        label="⚠️ Expired",
-                        data=excel_expired,
-                        file_name=f"assets_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        help="Export expired assets"
-                    )
-            
+        
+        if asset_type == "Workstation":
             with col_exp3:
                 if expired_warranty_df is not None and not expired_warranty_df.empty:
                     excel_warranty = export_to_excel(expired_warranty_df)
@@ -806,82 +771,121 @@ if uploaded_file is not None:
                         help="Export expired warranty"
                     )
 
-            # Summary cards
-            st.subheader("📊 Dashboard Summary")
-            show_summary_cards(df_filtered, df_expired)
+        # Summary cards
+        st.subheader("📊 Dashboard Summary")
+        show_summary_cards(df_filtered, df_expired)
 
-            # WORKSTATION TYPE SECTION
+        # TYPE SECTION
+        if type_col:
             st.markdown("---")
-            show_workstation_type_cards(df_filtered)
+            show_type_cards(df_filtered, type_col, asset_type)
 
-            # WARRANTY STATUS SECTION
-            if "Warranty Status" in df_filtered.columns:
-                st.markdown("---")
-                st.subheader("🛡️ Warranty Status")
-                show_warranty_summary(df_filtered)
-
-            # ASSET AGE SECTION
-            if "Asset Age" in df_filtered.columns:
-                st.markdown("---")
-                st.subheader("📅 Asset Age Analysis")
-                show_asset_age_summary(df_filtered)
-
-            # Category metrics
-            show_category_metrics(df_filtered)
-
-            # VISUAL CHARTS
+        # WARRANTY STATUS SECTION (only for Workstation)
+        if asset_type == "Workstation" and "Warranty Status" in df_filtered.columns:
             st.markdown("---")
-            st.subheader("📊 Visual Analytics")
-            
-            col_chart1, col_chart2 = st.columns(2)
-            
-            with col_chart1:
-                pie_fig = create_pie_chart(df_filtered)
+            st.subheader("🛡️ Warranty Status")
+            show_warranty_summary(df_filtered, model_col)
+
+        # ASSET AGE SECTION
+        if "Asset Age" in df_filtered.columns:
+            st.markdown("---")
+            st.subheader("📅 Asset Age Analysis")
+            show_asset_age_summary(df_filtered)
+
+        # Category metrics
+        st.markdown("---")
+        show_category_metrics(df_filtered, model_col)
+
+        # VISUAL CHARTS
+        st.markdown("---")
+        st.subheader("📊 Visual Analytics")
+        
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            pie_fig = create_pie_chart(df_filtered, model_col)
+            if pie_fig:
                 st.plotly_chart(pie_fig, use_container_width=True)
-            
-            with col_chart2:
-                dept_fig = create_department_chart(df_filtered)
-                if dept_fig:
-                    st.plotly_chart(dept_fig, use_container_width=True)
-                else:
-                    st.info("Department data not available")
+        
+        with col_chart2:
+            dept_col = find_column(df_filtered, ["department", "user department"])
+            dept_fig = create_department_chart(df_filtered, dept_col)
+            if dept_fig:
+                st.plotly_chart(dept_fig, use_container_width=True)
+            else:
+                st.info("Department data not available")
 
-            loc_fig = create_location_chart(df_filtered)
-            if loc_fig:
-                st.plotly_chart(loc_fig, use_container_width=True)
+        location_col = find_column(df_filtered, ["location"])
+        loc_fig = create_location_chart(df_filtered, location_col)
+        if loc_fig:
+            st.plotly_chart(loc_fig, use_container_width=True)
 
-            # Expired assets section
-            if df_expired is not None and not df_expired.empty:
-                st.markdown("---")
-                st.subheader("⚠️ Assets Marked for Replacement")
-                st.dataframe(df_expired, use_container_width=True)
-
-            # Full asset details table
+        # Expired assets section
+        if df_expired is not None and not df_expired.empty:
             st.markdown("---")
-            st.subheader("📋 Asset Details")
-            safe_columns = list(dict.fromkeys(list(new_columns.values())))
-            # Remove Year Of Purchase from display
-            if "Year Of Purchase" in safe_columns:
-                safe_columns.remove("Year Of Purchase")
-            st.dataframe(df_filtered[safe_columns], use_container_width=True)
+            st.subheader("⚠️ Assets Marked for Replacement")
+            st.dataframe(df_expired, use_container_width=True, hide_index=True)
+
+        # Full asset details table - SHOW ALL ORIGINAL COLUMNS
+        st.markdown("---")
+        st.subheader("📋 Asset Details")
+        
+        # Calculate columns excluding Year of Purchase for display
+        year_col = find_column(df_filtered, ["year of purchase", "yearofpurchase"])
+        display_columns = [col for col in df_filtered.columns if col != year_col]
+        
+        st.info(f"📊 Displaying ALL {len(display_columns)} columns from Excel file (excluding Year Of Purchase used for calculations)")
+        
+        # Display with better height
+        st.dataframe(df_filtered[display_columns], use_container_width=True, height=600)
 
     except Exception as e:
         st.error(f"❌ Error reading Excel file: {str(e)}")
         st.warning("💡 **Troubleshooting Tips:**")
         st.markdown("""
-        1. **Pastikan file di export dari sistem ITSD dengan format .xlsx**
-        2. **Fail Excel MESTI ada header row standard seperti berikut:**
-
-            `Workstation Type | Serial Number | Model | Workstation Status | Asset Tag | State | User | User Email | User Employee ID | User Jobtitle | Department | Location | Site | Year Of Purchase | Warranty Expiry | Place`
-
-            ⚠️ Jika tiada header seperti di atas, sistem ini tidak akan dapat membaca data dengan betul.
-        3. **Cuba buka file dalam Excel** dan save semula sebagai .xlsx
-        4. **Check file size** - pastikan tidak terlalu besar
-        5. **Remove password protection** jika ada
-        6. **Copy data ke Excel baru** dan save
-        7. **Pastikan file tidak corrupt** - cuba buka dalam Excel dulu
+        1. **Pastikan file format .xlsx (Excel)**
+        2. **File mesti ada header row dengan column names yang jelas**
+        3. **Cuba buka file dalam Excel dan save semula**
+        4. **Remove password protection jika ada**
+        5. **Pastikan file tidak corrupt**
+        
+        ### Expected Columns:
+        
+        **Workstation Assets:**
+        - Model (required)
+        - Workstation Type
+        - Serial Number
+        - User, Department, Location
+        - Warranty Expiry (optional)
+        
+        **Mobile Assets:**
+        - Product (required - ini adalah model device)
+        - Product Type (category: Tablet, Phone, etc)
+        - Serial Number
+        - User, Department, Location
+        - Programme (optional)
         """)
-
 
 else:
     st.info("📂 Sila upload fail Excel untuk mula.")
+    st.markdown("---")
+    st.markdown("### 📖 How It Works")
+    st.markdown("""
+    Dashboard ini menggunakan **ORIGINAL column names** dari Excel file anda.
+    
+    #### ✅ Kelebihan:
+    - **No column mapping** - guna terus nama original
+    - **No column loss** - semua columns akan dipaparkan
+    - **No duplicate issues** - "User" dan "User Email" adalah unik
+    - **Flexible** - boleh terima variation dalam column names
+    
+    #### 💻 **Workstation Assets**
+    Mesti ada column: **Model**
+    Optional: Workstation Type, Warranty Expiry, Place
+    
+    #### 📱 **Mobile Assets**  
+    Mesti ada column: **Product** (ini adalah model device seperti iPhone 13)
+    Optional: Product Type (category seperti Tablet, Phone), Programme
+    
+    **Upload fail Excel dan sistem akan auto-detect & display SEMUA columns!**
+    """)
