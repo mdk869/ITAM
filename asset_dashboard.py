@@ -570,7 +570,7 @@ def show_summary_cards(df, df_expired=None):
 
     with col1:
         st.markdown(f"""
-            <div class="card baby-blue">
+            <div class="card green">
                 📦 <br/> Total Assets <br/><h2>{total_assets}</h2>
             </div>
         """, unsafe_allow_html=True)
@@ -584,14 +584,14 @@ def show_summary_cards(df, df_expired=None):
 
     with col3:
         st.markdown(f"""
-            <div class="card navy">
+            <div class="card green">
                 ⚠️ <br/> Expired Assets <br/><h2>{expired_assets}</h2>
             </div>
         """, unsafe_allow_html=True)
 
     with col4:
         st.markdown(f"""
-            <div class="card white">
+            <div class="card green">
                 📊 <br/> Replacement Rate <br/><h2>{replacement_rate:.1f}%</h2>
             </div>
         """, unsafe_allow_html=True)
@@ -637,7 +637,7 @@ def show_type_cards(df, type_col, asset_type):
     num_types = len(type_counts)
     cols_per_row = min(4, num_types)
     cols = st.columns(cols_per_row)
-    colors = ["baby-blue", "green", "navy", "orange", "red", "purple"]
+    colors = ["baby-blue"]
 
     for idx, (wtype, count) in enumerate(type_counts.items()):
         col_idx = idx % cols_per_row
