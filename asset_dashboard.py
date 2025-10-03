@@ -360,6 +360,56 @@ def export_to_excel(df, filename="asset_data.xlsx"):
     output.seek(0)
     return output
 
+def create_sample_workstation_file():
+    """Create sample Workstation Excel file"""
+    sample_data = {
+        'Asset Tag': ['WS001', 'WS002', 'WS003', 'WS004', 'WS005'],
+        'Model': ['Dell Latitude 5420', 'HP EliteBook 840', 'Lenovo ThinkPad X1', 'Dell Optiplex 7090', 'HP ProBook 450'],
+        'Workstation Type': ['Laptop', 'Laptop', 'Laptop', 'Desktop', 'Laptop'],
+        'Serial Number': ['SN12345', 'SN12346', 'SN12347', 'SN12348', 'SN12349'],
+        'User': ['John Doe', 'Jane Smith', 'Bob Wilson', 'Alice Brown', 'Charlie Davis'],
+        'User Email': ['john.doe@company.com', 'jane.smith@company.com', 'bob.wilson@company.com', 'alice.brown@company.com', 'charlie.davis@company.com'],
+        'Department': ['IT', 'Finance', 'HR', 'Operations', 'Marketing'],
+        'Location': ['HQ Building A', 'HQ Building B', 'Branch Office', 'HQ Building A', 'Remote'],
+        'Site': ['Headquarters', 'Headquarters', 'Branch', 'Headquarters', 'Remote'],
+        'Year Of Purchase': [2022, 2021, 2023, 2020, 2022],
+        'Warranty Expiry': ['2025-12-31', '2024-11-30', '2026-06-30', '2023-10-31', '2025-08-15'],
+        'Place': ['Malaysia', 'Malaysia', 'Singapore', 'Malaysia', 'Malaysia'],
+        'Workstation Status': ['Active', 'Active', 'Active', 'Retired', 'Active'],
+        'State': ['In Use', 'In Use', 'In Use', 'Storage', 'In Use']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Workstation Assets')
+    output.seek(0)
+    return output
+
+def create_sample_mobile_file():
+    """Create sample Mobile Excel file"""
+    sample_data = {
+        'Asset Tag': ['MB001', 'MB002', 'MB003', 'MB004', 'MB005'],
+        'Product': ['iPhone 13 Pro', 'Samsung Galaxy S21', 'iPad Air', 'iPhone 12', 'Samsung Tab S8'],
+        'Product Type': ['Phone', 'Phone', 'Tablet', 'Phone', 'Tablet'],
+        'Serial Number': ['SNM12345', 'SNM12346', 'SNM12347', 'SNM12348', 'SNM12349'],
+        'User': ['John Doe', 'Jane Smith', 'Bob Wilson', 'Alice Brown', 'Charlie Davis'],
+        'User Email': ['john.doe@company.com', 'jane.smith@company.com', 'bob.wilson@company.com', 'alice.brown@company.com', 'charlie.davis@company.com'],
+        'Department': ['IT', 'Sales', 'Operations', 'Finance', 'HR'],
+        'Location': ['HQ Building A', 'Field', 'HQ Building B', 'HQ Building A', 'Branch Office'],
+        'Site': ['Headquarters', 'Field', 'Headquarters', 'Headquarters', 'Branch'],
+        'Year Of Purchase': [2022, 2021, 2023, 2021, 2022],
+        'Programme': ['Enterprise Mobility', 'Sales Force', 'Operations', 'Finance', 'HR Management'],
+        'State': ['In Use', 'In Use', 'In Use', 'In Use', 'In Use']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Mobile Assets')
+    output.seek(0)
+    return output
+
 def local_css():
     """Inject CSS untuk custom cards"""
     st.markdown("""
@@ -380,6 +430,25 @@ def local_css():
         .red {background-color: #e74c3c;}
         .orange {background-color: #f39c12;}
         .purple {background-color: #9b59b6;}
+        
+        .lang-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .lang-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .lang-btn.active {
+            background: #001F54;
+            color: white;
+            border-color: #001F54;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -867,38 +936,138 @@ if uploaded_file is not None:
         """)
 
 else:
-    st.info("📂 Sila upload fail Excel anda untuk mula.")
+    # Initialize language selection in session state
+    if 'language' not in st.session_state:
+        st.session_state.language = 'EN'
+    
+    # Language toggle buttons
+    col_lang1, col_lang2, col_space = st.columns([1, 1, 8])
+    with col_lang1:
+        if st.button("🇬🇧 English", use_container_width=True, 
+                     type="primary" if st.session_state.language == 'EN' else "secondary"):
+            st.session_state.language = 'EN'
+            st.rerun()
+    with col_lang2:
+        if st.button("🇲🇾 Bahasa", use_container_width=True,
+                     type="primary" if st.session_state.language == 'MY' else "secondary"):
+            st.session_state.language = 'MY'
+            st.rerun()
+    
     st.markdown("---")
-    st.markdown("### 🚀 Cara Guna Dashboard Ini")
-    st.markdown("""
-    Dashboard ini akan terus membaca **nama asal (original)** dari setiap column dalam fail Excel anda.  
-    Tiada proses mapping rumit – apa yang ada dalam Excel, itu yang akan dipaparkan di dashboard.
+    
+    # Content based on selected language
+    if st.session_state.language == 'EN':
+        st.info("📂 Please upload your Excel file to get started.")
+        
+        st.markdown("### 🚀 How to Use This Dashboard")
+        st.markdown("""
+        This dashboard reads **original column names** directly from your Excel file.  
+        No complex mapping needed – what's in your Excel is what appears in the dashboard.
 
-    #### 🔑 Perkara Penting
-    - Semua **columns asal** akan dipaparkan (tiada yang hilang).
-    - Sistem **tidak akan duplicate** column walaupun ada nama hampir sama (contoh: *User* vs *User Email*).
-    - **Fleksibel** – anda boleh guna fail dengan variasi nama column.
+        #### 🔑 Key Features
+        - **Auto-detection** of asset type (Workstation or Mobile)
+        - **All original columns** are displayed (no data loss)
+        - **Flexible** – works with various column name formats
+        - **Smart filtering** and search capabilities
 
-    #### 🖥️ Workstation Assets
-    - **Wajib ada:** `Model`  
-    - **Opsyenal:** `Workstation Type`, `Warranty Expiry`, `Place`
+        #### 📋 Required Columns
+        
+        **For Workstation Assets:**
+        - `Model` (Required)
+        - `Workstation Type`, `Warranty Expiry`, `Place` (Optional)
 
-    #### 📱 Mobile Assets
-    - **Wajib ada:** `Product` (contoh: iPhone 13, Samsung S21)  
-    - **Opsyenal:** `Product Type` (contoh: Phone, Tablet), `Programme`
+        **For Mobile Assets:**
+        - `Product` (Required – device model name)
+        - `Product Type`, `Programme` (Optional)
 
-    ---
-    ✅ **Langkah mudah untuk mula:**
-    1. Sediakan fail Excel dengan column asas yang diperlukan.
-    2. Tekan butang **Upload** dan pilih fail anda.
-    3. Semua data akan terus keluar di dashboard secara automatik.
-    """)
+        #### 📥 Download Sample Files
+        """)
+        
+        col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
+        with col_sample1:
+            sample_ws = create_sample_workstation_file()
+            st.download_button(
+                label="💻 Workstation Sample",
+                data=sample_ws,
+                file_name="sample_workstation_assets.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Download sample Workstation Excel file",
+                use_container_width=True
+            )
+        with col_sample2:
+            sample_mb = create_sample_mobile_file()
+            st.download_button(
+                label="📱 Mobile Sample",
+                data=sample_mb,
+                file_name="sample_mobile_assets.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Download sample Mobile Excel file",
+                use_container_width=True
+            )
+        
+        st.info("""
+        🔒 **Your Data Security**  
+        - Files are **NOT stored** on any server
+        - Processing happens **locally in your browser**
+        - Data stays on **your computer only**
+        
+        ℹ️ **Note:** If you refresh the page or close the browser, you'll need to upload the file again.
+        """)
+    
+    else:  # Bahasa Malaysia
+        st.info("📂 Sila muat naik fail Excel anda untuk bermula.")
+        
+        st.markdown("### 🚀 Cara Guna Dashboard Ini")
+        st.markdown("""
+        Dashboard ini membaca **nama asal kolum** terus dari fail Excel anda.  
+        Tiada proses mapping rumit – apa yang ada dalam Excel, itu yang muncul di dashboard.
 
-    st.info("""
-    🔒 **Keselamatan Data Anda**  
-    - Data yang anda upload **tidak akan disimpan di server**.  
-    - Dashboard ini hanya menggunakan **local storage dalam browser anda**.  
-    - Semua maklumat kekal di komputer anda sahaja dan **tidak dihantar ke mana-mana**.  
+        #### 🔑 Ciri-ciri Utama
+        - **Auto-detect** jenis aset (Workstation atau Mobile)
+        - **Semua kolum asal** dipaparkan (tiada data hilang)
+        - **Fleksibel** – berfungsi dengan pelbagai format nama kolum
+        - Kemudahan **penapisan** dan carian yang pintar
 
-    ℹ️ **Nota:** Jika anda **refresh page** atau **tutup browser**, anda perlu upload semula fail Excel.
-    """)
+        #### 📋 Kolum yang Diperlukan
+        
+        **Untuk Aset Workstation:**
+        - `Model` (Wajib)
+        - `Workstation Type`, `Warranty Expiry`, `Place` (Opsyenal)
+
+        **Untuk Aset Mobile:**
+        - `Product` (Wajib – nama model peranti)
+        - `Product Type`, `Programme` (Opsyenal)
+
+        #### 📥 Muat Turun Fail Contoh
+        """)
+        
+        col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
+        with col_sample1:
+            sample_ws = create_sample_workstation_file()
+            st.download_button(
+                label="💻 Contoh Workstation",
+                data=sample_ws,
+                file_name="contoh_aset_workstation.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Muat turun fail Excel contoh untuk Workstation",
+                use_container_width=True
+            )
+        with col_sample2:
+            sample_mb = create_sample_mobile_file()
+            st.download_button(
+                label="📱 Contoh Mobile",
+                data=sample_mb,
+                file_name="contoh_aset_mobile.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                help="Muat turun fail Excel contoh untuk Mobile",
+                use_container_width=True
+            )
+        
+        st.info("""
+        🔒 **Keselamatan Data Anda**  
+        - Fail **TIDAK disimpan** di mana-mana server
+        - Pemprosesan berlaku **secara lokal dalam browser anda**
+        - Data kekal di **komputer anda sahaja**
+        
+        ℹ️ **Nota:** Jika anda refresh halaman atau tutup browser, anda perlu muat naik fail semula.
+        """)
