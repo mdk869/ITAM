@@ -867,25 +867,38 @@ if uploaded_file is not None:
         """)
 
 else:
-    st.info("📂 Sila upload fail Excel untuk mula.")
+    st.info("📂 Sila upload fail Excel anda untuk mula.")
     st.markdown("---")
-    st.markdown("### 📖 How It Works")
+    st.markdown("### 🚀 Cara Guna Dashboard Ini")
     st.markdown("""
-    Dashboard ini menggunakan **ORIGINAL column names** dari Excel file anda.
-    
-    #### ✅ Kelebihan:
-    - **No column mapping** - guna terus nama original
-    - **No column loss** - semua columns akan dipaparkan
-    - **No duplicate issues** - "User" dan "User Email" adalah unik
-    - **Flexible** - boleh terima variation dalam column names
-    
-    #### 💻 **Workstation Assets**
-    Mesti ada column: **Model**
-    Optional: Workstation Type, Warranty Expiry, Place
-    
-    #### 📱 **Mobile Assets**  
-    Mesti ada column: **Product** (ini adalah model device seperti iPhone 13)
-    Optional: Product Type (category seperti Tablet, Phone), Programme
-    
-    **Upload fail Excel dan sistem akan auto-detect & display SEMUA columns!**
+    Dashboard ini akan terus membaca **nama asal (original)** dari setiap column dalam fail Excel anda.  
+    Tiada proses mapping rumit – apa yang ada dalam Excel, itu yang akan dipaparkan di dashboard.
+
+    #### 🔑 Perkara Penting
+    - Semua **columns asal** akan dipaparkan (tiada yang hilang).
+    - Sistem **tidak akan duplicate** column walaupun ada nama hampir sama (contoh: *User* vs *User Email*).
+    - **Fleksibel** – anda boleh guna fail dengan variasi nama column.
+
+    #### 🖥️ Workstation Assets
+    - **Wajib ada:** `Model`  
+    - **Opsyenal:** `Workstation Type`, `Warranty Expiry`, `Place`
+
+    #### 📱 Mobile Assets
+    - **Wajib ada:** `Product` (contoh: iPhone 13, Samsung S21)  
+    - **Opsyenal:** `Product Type` (contoh: Phone, Tablet), `Programme`
+
+    ---
+    ✅ **Langkah mudah untuk mula:**
+    1. Sediakan fail Excel dengan column asas yang diperlukan.
+    2. Tekan butang **Upload** dan pilih fail anda.
+    3. Semua data akan terus keluar di dashboard secara automatik.
+    """)
+
+    st.info("""
+    🔒 **Keselamatan Data Anda**  
+    - Data yang anda upload **tidak akan disimpan di server**.  
+    - Dashboard ini hanya menggunakan **local storage dalam browser anda**.  
+    - Semua maklumat kekal di komputer anda sahaja dan **tidak dihantar ke mana-mana**.  
+
+    ℹ️ **Nota:** Jika anda **refresh page** atau **tutup browser**, anda perlu upload semula fail Excel.
     """)
