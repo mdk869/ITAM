@@ -596,30 +596,103 @@ def show_summary_cards(df, df_expired=None):
             </div>
         """, unsafe_allow_html=True)
 
-def show_category_metrics(df, model_col):
-    """Display model breakdown metrics"""
+def show_category_metrics_with_region(df, model_col, asset_type):
+    """Display model breakdown metrics with regional breakdown table"""
     if not model_col:
         st.warning("Model column not found")
         return
 
-    model_counts = df[model_col].value_counts().sort_values(ascending=False)
-
-    st.markdown(f"### Unit Breakdown by {model_col}")
-
-    model_df = pd.DataFrame({
-        model_col: model_counts.index,
-        "Total Units": model_counts.values
-    })
-
-    st.dataframe(
-        model_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            model_col: st.column_config.TextColumn(model_col, width="large"),
-            "Total Units": st.column_config.NumberColumn("Total Units", width="small")
-        }
-    )
+    # Get Region column based on asset type
+    if asset_type == "Workstation":
+        region_col = find_column(df, ["place"])
+        region_label = "Place"
+    else:  # Mobile
+        region_col = find_column(df, ["site", "user site", "usersite"])
+        region_label = "Site"
+    
+    # Create two columns layout
+    col_left, col_right = st.columns([1, 1])
+    
+    # LEFT SIDE: Model breakdown
+    with col_left:
+        model_counts = df[model_col].value_counts().sort_values(ascending=False)
+        st.markdown(f"### Unit Breakdown by {model_col}")
+        
+        model_df = pd.DataFrame({
+            model_col: model_counts.index,
+            "Total Units": model_counts.values
+        })
+        
+        st.dataframe(
+            model_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                model_col: st.column_config.TextColumn(model_col, width="large"),
+                "Total Units": st.column_config.NumberColumn("Total Units", width="small")
+            }
+        )
+    
+    # RIGHT SIDE: Regional breakdown by filtered models
+    with col_right:
+        if region_col and region_col in df.columns:
+            st.markdown(f"### Regional Breakdown by {region_label}")
+            
+            # Create pivot table: Region vs Models
+            # Get unique models from the current dataframe
+            unique_models = df[model_col].unique()
+            unique_regions = df[region_col].unique()
+            
+            # Build the breakdown table
+            breakdown_data = []
+            
+            for region in sorted(unique_regions):
+                row_data = {"Region": region}
+                region_df = df[df[region_col] == region]
+                
+                # Count for each model in this region
+                for model in unique_models:
+                    model_count = len(region_df[region_df[model_col] == model])
+                    if model_count > 0:  # Only add columns for models that exist
+                        row_data[model] = model_count
+                
+                # Add row total
+                row_data["Total"] = len(region_df)
+                breakdown_data.append(row_data)
+            
+            # Add Grand Total row
+            grand_total_row = {"Region": "Grand Total"}
+            for model in unique_models:
+                model_total = len(df[df[model_col] == model])
+                if model_total > 0:
+                    grand_total_row[model] = model_total
+            grand_total_row["Total"] = len(df)
+            breakdown_data.append(grand_total_row)
+            
+            # Create DataFrame
+            breakdown_df = pd.DataFrame(breakdown_data)
+            
+            # Fill NaN with 0 and convert to int
+            breakdown_df = breakdown_df.fillna(0)
+            for col in breakdown_df.columns:
+                if col != "Region":
+                    breakdown_df[col] = breakdown_df[col].astype(int)
+            
+            # Display the table
+            st.dataframe(
+                breakdown_df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Region": st.column_config.TextColumn("Region", width="medium"),
+                    "Total": st.column_config.NumberColumn("Grand Total", width="small")
+                }
+            )
+        else:
+            if asset_type == "Workstation":
+                st.info(f"🌍 Place column not found in Excel file")
+            else:
+                st.info(f"🏢 Site column not found in Excel file")
 
 def show_type_cards(df, type_col, asset_type):
     """Display type breakdown as metric cards"""
@@ -870,7 +943,7 @@ if uploaded_file is not None:
             st.markdown("""
             **Need Help?**
             
-            📧 Email: khalis.abdrahim@airselangor.com  
+            📧 Email: khalis.abdrahim@gmail.com
             
             **Response Time:**  
             Mon-Fri: Within 24 hours  
@@ -882,9 +955,12 @@ if uploaded_file is not None:
         st.sidebar.markdown("""
             <div style='text-align: center; color: #666; font-size: 0.85em;'>
                 <strong>IT Asset Dashboard</strong><br/>
-                Version 2.0.1<br/>
+                Version 2.1.1<br/>
                 Last Updated: Oct 2025<br/>
                 <br/>
+                &copy; 2025 all rights reserved.
+                <br/>
+                Developed by MKAR<br/>
             </div>
         """, unsafe_allow_html=True)
 
@@ -909,9 +985,9 @@ if uploaded_file is not None:
             st.subheader("📅 Asset Age Analysis")
             show_asset_age_summary(df_filtered)
 
-        # Category metrics
+        # Category metrics WITH REGIONAL BREAKDOWN
         st.markdown("---")
-        show_category_metrics(df_filtered, model_col)
+        show_category_metrics_with_region(df_filtered, model_col, asset_type)
 
         # VISUAL CHARTS
         st.markdown("---")
@@ -974,6 +1050,7 @@ if uploaded_file is not None:
         - Serial Number
         - User, Department, Location
         - Warranty Expiry (optional)
+        - Place (for regional breakdown)
         
         **Mobile Assets:**
         - Product (required - ini adalah model device)
@@ -1015,6 +1092,7 @@ else:
         #### 🔑 Key Features
         - **Auto-detection** of asset type (Workstation or Mobile)
         - **All original columns** are displayed (no data loss)
+        - **Regional breakdown** by Place/Location
         - **Flexible** – works with various column name formats
         - **Smart filtering** and search capabilities
 
@@ -1073,6 +1151,7 @@ else:
         #### 🔑 Ciri-ciri Utama
         - **Auto-detect** jenis aset (Workstation atau Mobile)
         - **Semua kolum asal** dipaparkan (tiada data hilang)
+        - **Pecahan mengikut Rantau** (Place/Location)
         - **Fleksibel** – berfungsi dengan pelbagai format nama kolum
         - Kemudahan **penapisan** dan carian yang pintar
 
