@@ -678,13 +678,17 @@ def show_category_metrics_with_region(df, model_col, asset_type):
                 if col != "Region":
                     breakdown_df[col] = breakdown_df[col].astype(int)
             
-            # Display the table
+            # Display the table with frozen Region column
             st.dataframe(
                 breakdown_df,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Region": st.column_config.TextColumn("Region", width="medium"),
+                    "Region": st.column_config.TextColumn(
+                        "Region", 
+                        width="medium",
+                        pinned=True
+                    ),
                     "Total": st.column_config.NumberColumn("Grand Total", width="small")
                 }
             )
@@ -943,7 +947,7 @@ if uploaded_file is not None:
             st.markdown("""
             **Need Help?**
             
-            📧 Email: khalis.abdrahim@gmail.com
+            📧 Email: khalis.abdrahim@gmail.com  
             
             **Response Time:**  
             Mon-Fri: Within 24 hours  
@@ -958,8 +962,7 @@ if uploaded_file is not None:
                 Version 2.1.1<br/>
                 Last Updated: Oct 2025<br/>
                 <br/>
-                &copy; 2025 all rights reserved.
-                <br/>
+                © 2025 all rights reserved.<br/>
                 Developed by MKAR<br/>
             </div>
         """, unsafe_allow_html=True)
