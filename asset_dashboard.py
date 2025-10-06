@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 st.set_page_config(
     page_title="Asset Management Dashboard System",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 # ============================================================================
@@ -311,13 +311,36 @@ def inject_professional_css():
             box-shadow: 0 2px 8px rgba(0, 102, 179, 0.06);
         }
         
-        /* File Uploader */
+        /* File Uploader - Adaptive to Streamlit Theme */
         [data-testid="stFileUploader"] {
-            background: white;
+            background: transparent !important;
             border-radius: 8px;
             padding: 24px;
-            box-shadow: 0 2px 8px rgba(0, 102, 179, 0.06);
-            border: 2px dashed var(--border);
+            border: none;
+        }
+        
+        [data-testid="stFileUploader"] section {
+            background: rgba(240, 242, 246, 0.5) !important;
+            border: 2px dashed #D0D5DD !important;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        [data-testid="stFileUploader"] section:hover {
+            border-color: var(--primary-blue) !important;
+            background: rgba(230, 235, 245, 0.7) !important;
+        }
+        
+        /* Target Dark Theme Specifically */
+        [data-theme="dark"] [data-testid="stFileUploader"] section,
+        .dark [data-testid="stFileUploader"] section {
+            background: rgba(42, 42, 42, 0.5) !important;
+            border: 2px dashed #555 !important;
+        }
+        
+        [data-theme="dark"] [data-testid="stFileUploader"] section:hover,
+        .dark [data-testid="stFileUploader"] section:hover {
+            background: rgba(51, 51, 51, 0.7) !important;
         }
         
         /* Dividers */
