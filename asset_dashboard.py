@@ -28,7 +28,6 @@ def inject_professional_css():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
         
-        /* Air Selangor Color Palette */
         :root {
             --primary-blue: #0066B3;
             --secondary-blue: #0080C9;
@@ -61,7 +60,6 @@ def inject_professional_css():
             font-weight: 600;
         }
         
-        /* Sidebar Styling */
         [data-testid="stSidebar"] {
             background: #FFFFFF;
             border-right: 1px solid var(--border);
@@ -71,17 +69,6 @@ def inject_professional_css():
             color: var(--text-primary) !important;
         }
         
-        [data-testid="stSidebar"] .stMarkdown {
-            font-size: 0.9rem;
-        }
-        
-        [data-testid="stSidebar"] label {
-            font-weight: 500 !important;
-            color: var(--text-primary) !important;
-            font-size: 0.875rem !important;
-        }
-        
-        /* Metric Cards - Soft Blue Background */
         .metric-card {
             background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
             border-radius: 12px;
@@ -115,58 +102,17 @@ def inject_professional_css():
             font-weight: 600;
         }
         
-        /* Card Color Variants - Soft Backgrounds */
-        .card-primary { 
-            background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
-        }
-        .card-primary h2 { 
-            color: #0066B3 !important; 
-        }
-        .card-primary .metric-label {
-            color: #1A4D7A;
-        }
+        .card-primary { background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%); }
+        .card-primary h2 { color: #0066B3 !important; }
+        .card-success { background: linear-gradient(135deg, #E8F8F0 0%, #D1F2E0 100%); }
+        .card-success h2 { color: #1B7A4C !important; }
+        .card-warning { background: linear-gradient(135deg, #FFF8E6 0%, #FFF0CC 100%); }
+        .card-warning h2 { color: #B8860B !important; }
+        .card-info { background: linear-gradient(135deg, #E6F7FC 0%, #CCF0FA 100%); }
+        .card-info h2 { color: #007BA7 !important; }
+        .card-danger { background: linear-gradient(135deg, #FFE8EB 0%, #FFD6DC 100%); }
+        .card-danger h2 { color: #B91C2E !important; }
         
-        .card-success { 
-            background: linear-gradient(135deg, #E8F8F0 0%, #D1F2E0 100%);
-        }
-        .card-success h2 { 
-            color: #1B7A4C !important; 
-        }
-        .card-success .metric-label {
-            color: #1B7A4C;
-        }
-        
-        .card-warning { 
-            background: linear-gradient(135deg, #FFF8E6 0%, #FFF0CC 100%);
-        }
-        .card-warning h2 { 
-            color: #B8860B !important; 
-        }
-        .card-warning .metric-label {
-            color: #8B6914;
-        }
-        
-        .card-info { 
-            background: linear-gradient(135deg, #E6F7FC 0%, #CCF0FA 100%);
-        }
-        .card-info h2 { 
-            color: #007BA7 !important; 
-        }
-        .card-info .metric-label {
-            color: #005F87;
-        }
-        
-        .card-danger { 
-            background: linear-gradient(135deg, #FFE8EB 0%, #FFD6DC 100%);
-        }
-        .card-danger h2 { 
-            color: #B91C2E !important; 
-        }
-        .card-danger .metric-label {
-            color: #8B1624;
-        }
-        
-        /* Type Cards - Soft Blue Background */
         .type-card {
             background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
             border-radius: 12px;
@@ -203,7 +149,6 @@ def inject_professional_css():
             color: #0066B3;
         }
         
-        /* Section Headers */
         .section-header {
             background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
             padding: 14px 20px;
@@ -215,7 +160,6 @@ def inject_professional_css():
             box-shadow: 0 2px 8px rgba(0, 102, 179, 0.2);
         }
         
-        /* Sidebar Section Headers */
         .sidebar-section {
             background: var(--light-blue);
             padding: 10px 16px;
@@ -227,7 +171,6 @@ def inject_professional_css():
             border-left: 3px solid var(--primary-blue);
         }
         
-        /* Validation Severity Badges */
         .severity-badge {
             display: inline-block;
             padding: 4px 12px;
@@ -238,22 +181,10 @@ def inject_professional_css():
             margin-right: 8px;
         }
         
-        .severity-high {
-            background: #DC3545;
-            color: white;
-        }
+        .severity-high { background: #DC3545; color: white; }
+        .severity-medium { background: #FFC107; color: #2C3E50; }
+        .severity-low { background: #28A745; color: white; }
         
-        .severity-medium {
-            background: #FFC107;
-            color: #2C3E50;
-        }
-        
-        .severity-low {
-            background: #28A745;
-            color: white;
-        }
-        
-        /* Data Tables */
         .stDataFrame {
             border-radius: 8px;
             overflow: hidden;
@@ -261,16 +192,6 @@ def inject_professional_css():
             border: 1px solid var(--border);
         }
         
-        /* Expanders */
-        .streamlit-expanderHeader {
-            background: #FFFFFF;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        
-        /* Buttons */
         .stButton>button {
             background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
             color: white;
@@ -287,87 +208,9 @@ def inject_professional_css():
             transform: translateY(-1px);
         }
         
-        /* Download Buttons */
-        .stDownloadButton>button {
-            background: #FFFFFF;
-            color: var(--primary-blue);
-            border: 1px solid var(--primary-blue);
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
-        }
-        
-        .stDownloadButton>button:hover {
-            background: var(--primary-blue);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 102, 179, 0.2);
-        }
-        
-        /* Alerts */
-        .stAlert {
-            border-radius: 8px;
-            border-left: 4px solid;
-            box-shadow: 0 2px 8px rgba(0, 102, 179, 0.06);
-        }
-        
-        /* File Uploader - Adaptive to Streamlit Theme */
-        [data-testid="stFileUploader"] {
-            background: transparent !important;
-            border-radius: 8px;
-            padding: 24px;
-            border: none;
-        }
-        
-        [data-testid="stFileUploader"] section {
-            background: rgba(240, 242, 246, 0.5) !important;
-            border: 2px dashed #D0D5DD !important;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        [data-testid="stFileUploader"] section:hover {
-            border-color: var(--primary-blue) !important;
-            background: rgba(230, 235, 245, 0.7) !important;
-        }
-        
-        /* Target Dark Theme Specifically */
-        [data-theme="dark"] [data-testid="stFileUploader"] section,
-        .dark [data-testid="stFileUploader"] section {
-            background: rgba(42, 42, 42, 0.5) !important;
-            border: 2px dashed #555 !important;
-        }
-        
-        [data-theme="dark"] [data-testid="stFileUploader"] section:hover,
-        .dark [data-testid="stFileUploader"] section:hover {
-            background: rgba(51, 51, 51, 0.7) !important;
-        }
-        
-        /* Dividers */
-        hr {
-            margin: 32px 0;
-            border: none;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--border), transparent);
-        }
-        
-        /* Multi-select Tags */
-        .stMultiSelect [data-baseweb="tag"] {
-            background-color: var(--light-blue);
-            color: var(--primary-blue);
-            border-radius: 6px;
-        }
-        
-        /* Info/Success/Warning Boxes */
-        .stInfo { background: var(--light-blue); border-left: 4px solid var(--primary-blue); }
-        .stSuccess { background: #D4EDDA; border-left: 4px solid var(--success); }
-        .stWarning { background: #FFF3CD; border-left: 4px solid var(--warning); }
-        
-        /* Mobile Responsive */
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem !important; }
             .metric-card h2 { font-size: 1.8rem; }
-            .section-header { font-size: 1rem; padding: 12px 16px; }
         }
         </style>
     """, unsafe_allow_html=True)
@@ -376,6 +219,7 @@ def inject_professional_css():
 # UTILITY FUNCTIONS
 # ============================================================================
 
+@st.cache_data
 def normalize_text(text):
     """Normalize text for column matching"""
     return re.sub(r'[^a-z0-9]', '', str(text).lower())
@@ -385,12 +229,13 @@ def find_column(df, search_terms):
     if isinstance(search_terms, str):
         search_terms = [search_terms]
     
-    for col in df.columns:
-        normalized_col = normalize_text(col)
-        for term in search_terms:
-            normalized_term = normalize_text(term)
-            if normalized_term in normalized_col:
-                return col
+    normalized_cols = {normalize_text(col): col for col in df.columns}
+    
+    for term in search_terms:
+        normalized_term = normalize_text(term)
+        for norm_col, orig_col in normalized_cols.items():
+            if normalized_term in norm_col:
+                return orig_col
     return None
 
 # ============================================================================
@@ -410,40 +255,28 @@ def detect_asset_type(df_columns):
 
 def get_model_column(df, asset_type):
     """Get model column based on asset type"""
-    if asset_type == "Workstation":
-        return find_column(df, ["model"])
-    else:
-        for col in df.columns:
-            if normalize_text(col) == "product":
-                return col
-    return None
+    return find_column(df, ["model"] if asset_type == "Workstation" else ["product"])
 
 def get_type_column(df, asset_type):
     """Get type column based on asset type"""
     if asset_type == "Workstation":
         return find_column(df, ["workstation type", "workstationtype"])
-    else:
-        return find_column(df, ["product type", "producttype"])
+    return find_column(df, ["product type", "producttype"])
 
 def detect_header_row(excel_file, sheet_name):
     """Auto-detect header row in Excel file"""
     try:
         preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=15, engine='openpyxl')
         
-        keywords = [
-            "model", "serial", "user", "department", 
-            "asset", "workstation", "location", "site",
-            "computer", "employee", "email", "product",
-            "mobile", "programme", "program"
-        ]
+        keywords = ["model", "serial", "user", "department", "asset", "workstation", 
+                   "location", "site", "computer", "employee", "email", "product", 
+                   "mobile", "programme", "program"]
         
         for i, row in preview.iterrows():
-            values = row.astype(str).str.lower().str.strip().tolist()
+            values = row.astype(str).str.lower().str.strip()
             matches = sum(1 for v in values if any(keyword in v for keyword in keywords))
-            
             if matches >= 3:
                 return i
-        
         return 0
     except:
         return 0
@@ -452,43 +285,46 @@ def detect_header_row(excel_file, sheet_name):
 # DATA PROCESSING FUNCTIONS
 # ============================================================================
 
+@st.cache_data
 def calculate_asset_age(df):
     """Calculate asset age from purchase year"""
     year_col = find_column(df, ["year of purchase", "yearofpurchase"])
     if year_col:
         current_year = pd.Timestamp.now().year
-        try:
-            df["Asset Age"] = current_year - pd.to_numeric(df[year_col], errors='coerce')
-            df["Asset Age"] = df["Asset Age"].fillna(0).astype(int)
-        except:
-            df["Asset Age"] = 0
+        df["Asset Age"] = current_year - pd.to_numeric(df[year_col], errors='coerce')
+        df["Asset Age"] = df["Asset Age"].fillna(0).astype(int)
     else:
         df["Asset Age"] = 0
     return df
 
+@st.cache_data
 def get_warranty_status(df):
     """Calculate warranty status"""
     warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
     if not warranty_col:
         return df, None
 
-    try:
-        df_temp = df.copy()
-        df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
-
-        today = pd.Timestamp.now()
-        df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
-
-        df_temp["Warranty Status"] = "Unknown"
-        df_temp.loc[df_temp["Days to Expiry"] < 0, "Warranty Status"] = "Expired"
-        df_temp.loc[(df_temp["Days to Expiry"] >= 0) & (df_temp["Days to Expiry"] <= 90), "Warranty Status"] = "Expiring Soon"
-        df_temp.loc[df_temp["Days to Expiry"] > 90, "Warranty Status"] = "Active"
-
-        expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
-
-        return df_temp, expired_warranty_df
-    except:
-        return df, None
+    df_temp = df.copy()
+    df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
+    today = pd.Timestamp.now()
+    df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
+    
+    conditions = [
+        df_temp["Days to Expiry"] < 0,
+        (df_temp["Days to Expiry"] >= 0) & (df_temp["Days to Expiry"] <= 90),
+        df_temp["Days to Expiry"] > 90
+    ]
+    choices = ["Expired", "Expiring Soon", "Active"]
+    df_temp["Warranty Status"] = pd.Series(pd.NA, dtype="object")
+    df_temp["Warranty Status"] = df_temp["Warranty Status"].where(
+        ~df_temp["Days to Expiry"].notna(), 
+        pd.Series([choices[i] for i in [next((j for j, c in enumerate(conditions) if c.iloc[idx]), -1) 
+                   for idx in range(len(df_temp))]], dtype="object")
+    )
+    df_temp["Warranty Status"] = df_temp["Warranty Status"].fillna("Unknown")
+    
+    expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
+    return df_temp, expired_warranty_df
 
 # ============================================================================
 # DATA VALIDATION
@@ -505,39 +341,36 @@ def validate_data(df, asset_type, model_col):
     dept_col = find_column(df, ["department", "user department"])
     location_col = find_column(df, ["location"])
 
-    # Check duplicate asset tags
+    # Check duplicates
     if asset_tag_col:
         duplicates = df[df[asset_tag_col].duplicated(keep=False) & df[asset_tag_col].notna()]
         if not duplicates.empty:
-            dup_tags = duplicates[asset_tag_col].unique()
             display_cols = [c for c in [asset_tag_col, model_col, serial_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Asset Tags",
-                "count": len(dup_tags),
-                "details": f"Found {len(dup_tags)} duplicate asset tags",
+                "count": len(duplicates[asset_tag_col].unique()),
+                "details": f"Found {len(duplicates[asset_tag_col].unique())} duplicate asset tags",
                 "severity": "high",
                 "data": duplicates[display_cols].sort_values(asset_tag_col)
             })
 
-    # Check duplicate serial numbers
     if serial_col:
         duplicates = df[df[serial_col].duplicated(keep=False) & df[serial_col].notna()]
         if not duplicates.empty:
-            dup_serials = duplicates[serial_col].unique()
             display_cols = [c for c in [serial_col, model_col, asset_tag_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Serial Numbers",
-                "count": len(dup_serials),
-                "details": f"Found {len(dup_serials)} duplicate serial numbers",
+                "count": len(duplicates[serial_col].unique()),
+                "details": f"Found {len(duplicates[serial_col].unique())} duplicate serial numbers",
                 "severity": "high",
                 "data": duplicates[display_cols].sort_values(serial_col)
             })
 
-    # Check missing users
+    # Check missing data
     if user_col:
         missing_users = df[df[user_col].isna() | (df[user_col] == "")]
         if not missing_users.empty:
-            display_cols = [c for c in [asset_tag_col, model_col, serial_col, dept_col, location_col] if c]
+            display_cols = [c for c in [asset_tag_col, model_col, serial_col, dept_col] if c]
             issues.append({
                 "type": "Missing User Assignment",
                 "count": len(missing_users),
@@ -560,56 +393,10 @@ def validate_data(df, asset_type, model_col):
                 "data": invalid_emails[display_cols]
             })
 
-    # Check missing department
-    if dept_col:
-        missing_dept = df[df[dept_col].isna() | (df[dept_col] == "")]
-        if not missing_dept.empty:
-            display_cols = [c for c in [asset_tag_col, model_col, user_col, location_col] if c]
-            issues.append({
-                "type": "Missing Department",
-                "count": len(missing_dept),
-                "details": f"{len(missing_dept)} assets without department",
-                "severity": "medium",
-                "data": missing_dept[display_cols]
-            })
-
-    # Check missing location
-    if location_col:
-        missing_loc = df[df[location_col].isna() | (df[location_col] == "")]
-        if not missing_loc.empty:
-            display_cols = [c for c in [asset_tag_col, model_col, user_col, dept_col] if c]
-            issues.append({
-                "type": "Missing Location",
-                "count": len(missing_loc),
-                "details": f"{len(missing_loc)} assets without location",
-                "severity": "medium",
-                "data": missing_loc[display_cols]
-            })
-
-    # Check expired warranties
-    if asset_type == "Workstation":
-        warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
-        if warranty_col:
-            try:
-                df_temp = df.copy()
-                df_temp[warranty_col] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
-                expired_warranty = df_temp[df_temp[warranty_col] < pd.Timestamp.now()]
-                if not expired_warranty.empty:
-                    display_cols = [c for c in [asset_tag_col, model_col, user_col, warranty_col] if c]
-                    issues.append({
-                        "type": "Expired Warranties",
-                        "count": len(expired_warranty),
-                        "details": f"{len(expired_warranty)} assets with expired warranties",
-                        "severity": "medium",
-                        "data": expired_warranty[display_cols]
-                    })
-            except:
-                pass
-
     return issues
 
 def show_validation_issues(issues):
-    """Display validation issues with colored severity badges"""
+    """Display validation issues"""
     if not issues:
         st.success("No data validation issues found")
         return
@@ -617,7 +404,6 @@ def show_validation_issues(issues):
     st.warning(f"Found {len(issues)} validation issue(s)")
 
     for issue in issues:
-        # Create colored severity badge
         severity_class = f"severity-{issue['severity']}"
         severity_label = issue['severity'].upper()
         
@@ -625,7 +411,6 @@ def show_validation_issues(issues):
             st.markdown(f'<span class="severity-badge {severity_class}">{severity_label}</span> {issue["details"]}', 
                        unsafe_allow_html=True)
             if "data" in issue and not issue["data"].empty:
-                st.markdown("**Affected Assets:**")
                 st.dataframe(issue["data"], use_container_width=True, hide_index=True)
 
 # ============================================================================
@@ -641,37 +426,21 @@ def show_summary_cards(df, df_expired=None):
 
     col1, col2, col3, col4 = st.columns(4)
 
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card card-primary">
-                <div class="metric-label">TOTAL ASSETS</div>
-                <h2>{total_assets}</h2>
-            </div>
-        """, unsafe_allow_html=True)
+    cards = [
+        (col1, "TOTAL ASSETS", total_assets, "card-primary"),
+        (col2, "ACTIVE ASSETS", active_assets, "card-success"),
+        (col3, "EXPIRED ASSETS", expired_assets, "card-warning"),
+        (col4, "REPLACEMENT RATE", f"{replacement_rate:.1f}%", "card-info")
+    ]
 
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card card-success">
-                <div class="metric-label">ACTIVE ASSETS</div>
-                <h2>{active_assets}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card card-warning">
-                <div class="metric-label">EXPIRED ASSETS</div>
-                <h2>{expired_assets}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col4:
-        st.markdown(f"""
-            <div class="metric-card card-info">
-                <div class="metric-label">REPLACEMENT RATE</div>
-                <h2>{replacement_rate:.1f}%</h2>
-            </div>
-        """, unsafe_allow_html=True)
+    for col, label, value, card_class in cards:
+        with col:
+            st.markdown(f"""
+                <div class="metric-card {card_class}">
+                    <div class="metric-label">{label}</div>
+                    <h2>{value}</h2>
+                </div>
+            """, unsafe_allow_html=True)
 
 def show_type_cards(df, type_col, asset_type):
     """Display asset type cards"""
@@ -681,14 +450,11 @@ def show_type_cards(df, type_col, asset_type):
     st.markdown(f'<div class="section-header">{type_col} Statistics</div>', unsafe_allow_html=True)
 
     type_counts = df[type_col].value_counts().sort_values(ascending=False)
-    num_types = len(type_counts)
-    cols_per_row = min(4, num_types)
+    cols_per_row = min(4, len(type_counts))
     cols = st.columns(cols_per_row)
 
     for idx, (wtype, count) in enumerate(type_counts.items()):
-        col_idx = idx % cols_per_row
-
-        with cols[col_idx]:
+        with cols[idx % cols_per_row]:
             st.markdown(f"""
                 <div class="type-card card-primary">
                     <div class="type-label">{wtype}</div>
@@ -696,7 +462,7 @@ def show_type_cards(df, type_col, asset_type):
                 </div>
             """, unsafe_allow_html=True)
 
-        if (idx + 1) % cols_per_row == 0 and (idx + 1) < num_types:
+        if (idx + 1) % cols_per_row == 0 and (idx + 1) < len(type_counts):
             cols = st.columns(cols_per_row)
 
 def show_warranty_summary(df, model_col):
@@ -705,35 +471,22 @@ def show_warranty_summary(df, model_col):
         return
 
     status_counts = df["Warranty Status"].value_counts()
-
     col1, col2, col3 = st.columns(3)
 
-    with col1:
-        expired = status_counts.get("Expired", 0)
-        st.markdown(f"""
-            <div class="metric-card card-danger">
-                <div class="metric-label">EXPIRED WARRANTY</div>
-                <h2>{expired}</h2>
-            </div>
-        """, unsafe_allow_html=True)
+    statuses = [
+        (col1, "EXPIRED WARRANTY", status_counts.get("Expired", 0), "card-danger"),
+        (col2, "EXPIRING SOON (90 DAYS)", status_counts.get("Expiring Soon", 0), "card-warning"),
+        (col3, "ACTIVE WARRANTY", status_counts.get("Active", 0), "card-success")
+    ]
 
-    with col2:
-        expiring = status_counts.get("Expiring Soon", 0)
-        st.markdown(f"""
-            <div class="metric-card card-warning">
-                <div class="metric-label">EXPIRING SOON (90 DAYS)</div>
-                <h2>{expiring}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with col3:
-        active = status_counts.get("Active", 0)
-        st.markdown(f"""
-            <div class="metric-card card-success">
-                <div class="metric-label">ACTIVE WARRANTY</div>
-                <h2>{active}</h2>
-            </div>
-        """, unsafe_allow_html=True)
+    for col, label, count, card_class in statuses:
+        with col:
+            st.markdown(f"""
+                <div class="metric-card {card_class}">
+                    <div class="metric-label">{label}</div>
+                    <h2>{count}</h2>
+                </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -743,24 +496,14 @@ def show_warranty_summary(df, model_col):
     location_col = find_column(df, ["location"])
     warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
 
-    # Show expandable sections for each warranty status
-    expired_df = df[df["Warranty Status"] == "Expired"]
-    if not expired_df.empty:
-        with st.expander(f"Expired Warranty Assets ({len(expired_df)})", expanded=False):
-            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
-            st.dataframe(expired_df[display_cols], use_container_width=True, hide_index=True)
-
-    expiring_df = df[df["Warranty Status"] == "Expiring Soon"]
-    if not expiring_df.empty:
-        with st.expander(f"Expiring Soon Assets ({len(expiring_df)})", expanded=False):
-            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
-            st.dataframe(expiring_df[display_cols], use_container_width=True, hide_index=True)
-
-    active_df = df[df["Warranty Status"] == "Active"]
-    if not active_df.empty:
-        with st.expander(f"Active Warranty Assets ({len(active_df)})", expanded=False):
-            display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
-            st.dataframe(active_df[display_cols], use_container_width=True, hide_index=True)
+    for status, label in [("Expired", "Expired Warranty Assets"), 
+                          ("Expiring Soon", "Expiring Soon Assets"), 
+                          ("Active", "Active Warranty Assets")]:
+        status_df = df[df["Warranty Status"] == status]
+        if not status_df.empty:
+            with st.expander(f"{label} ({len(status_df)})", expanded=False):
+                display_cols = [c for c in [model_col, serial_col, user_col, dept_col, location_col, warranty_col] if c]
+                st.dataframe(status_df[display_cols], use_container_width=True, hide_index=True)
 
 def show_asset_age_summary(df):
     """Display asset age analysis"""
@@ -768,57 +511,40 @@ def show_asset_age_summary(df):
         return
 
     df_temp = df.copy()
-    df_temp["Age Category"] = "Unknown"
-    df_temp.loc[df_temp["Asset Age"] <= 1, "Age Category"] = "New (0-1 year)"
-    df_temp.loc[(df_temp["Asset Age"] > 1) & (df_temp["Asset Age"] <= 3), "Age Category"] = "Active (1-3 years)"
-    df_temp.loc[(df_temp["Asset Age"] > 3) & (df_temp["Asset Age"] <= 5), "Age Category"] = "Aging (3-5 years)"
-    df_temp.loc[df_temp["Asset Age"] > 5, "Age Category"] = "Old (5+ years)"
+    conditions = [
+        df_temp["Asset Age"] <= 1,
+        (df_temp["Asset Age"] > 1) & (df_temp["Asset Age"] <= 3),
+        (df_temp["Asset Age"] > 3) & (df_temp["Asset Age"] <= 5),
+        df_temp["Asset Age"] > 5
+    ]
+    choices = ["New (0-1 year)", "Active (1-3 years)", "Aging (3-5 years)", "Old (5+ years)"]
+    df_temp["Age Category"] = pd.Series(pd.NA, dtype="object")
+    for condition, choice in zip(conditions, choices):
+        df_temp.loc[condition, "Age Category"] = choice
 
     age_counts = df_temp["Age Category"].value_counts()
     avg_age = df_temp[df_temp["Asset Age"] > 0]["Asset Age"].mean()
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card card-info">
-                <div class="metric-label">AVERAGE AGE</div>
-                <h2>{avg_age:.1f}</h2>
-                <div class="metric-label">YEARS</div>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card card-success">
-                <div class="metric-label">NEW (0-1YR)</div>
-                <h2>{age_counts.get("New (0-1 year)", 0)}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card card-primary">
-                <div class="metric-label">ACTIVE (1-3YR)</div>
-                <h2>{age_counts.get("Active (1-3 years)", 0)}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-            <div class="metric-card card-warning">
-                <div class="metric-label">AGING (3-5YR)</div>
-                <h2>{age_counts.get("Aging (3-5 years)", 0)}</h2>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col5:
-        st.markdown(f"""
-            <div class="metric-card card-danger">
-                <div class="metric-label">OLD (5+YR)</div>
-                <h2>{age_counts.get("Old (5+ years)", 0)}</h2>
-            </div>
-        """, unsafe_allow_html=True)
+    metrics = [
+        (col1, "AVERAGE AGE", f"{avg_age:.1f}", "YEARS", "card-info"),
+        (col2, "NEW (0-1YR)", age_counts.get("New (0-1 year)", 0), "", "card-success"),
+        (col3, "ACTIVE (1-3YR)", age_counts.get("Active (1-3 years)", 0), "", "card-primary"),
+        (col4, "AGING (3-5YR)", age_counts.get("Aging (3-5 years)", 0), "", "card-warning"),
+        (col5, "OLD (5+YR)", age_counts.get("Old (5+ years)", 0), "", "card-danger")
+    ]
+
+    for col, label, value, extra, card_class in metrics:
+        with col:
+            extra_html = f'<div class="metric-label">{extra}</div>' if extra else ''
+            st.markdown(f"""
+                <div class="metric-card {card_class}">
+                    <div class="metric-label">{label}</div>
+                    <h2>{value}</h2>
+                    {extra_html}
+                </div>
+            """, unsafe_allow_html=True)
 
 def show_category_metrics_with_region(df, model_col, asset_type):
     """Display unit breakdown and regional analysis"""
@@ -826,12 +552,8 @@ def show_category_metrics_with_region(df, model_col, asset_type):
         st.warning("Model column not found")
         return
 
-    if asset_type == "Workstation":
-        region_col = find_column(df, ["place"])
-        region_label = "Place"
-    else:
-        region_col = find_column(df, ["site", "user site", "usersite"])
-        region_label = "Site"
+    region_col = find_column(df, ["place"] if asset_type == "Workstation" else ["site", "user site", "usersite"])
+    region_label = "Place" if asset_type == "Workstation" else "Site"
     
     col_left, col_right = st.columns([1, 1])
     
@@ -844,61 +566,18 @@ def show_category_metrics_with_region(df, model_col, asset_type):
             "Total Units": model_counts.values
         })
         
-        st.dataframe(
-            model_df,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                model_col: st.column_config.TextColumn(model_col, width="large"),
-                "Total Units": st.column_config.NumberColumn("Total Units", width="small")
-            }
-        )
+        st.dataframe(model_df, use_container_width=True, hide_index=True)
     
     with col_right:
         if region_col and region_col in df.columns:
             st.markdown(f'<div class="section-header">Regional Breakdown by {region_label}</div>', unsafe_allow_html=True)
             
-            unique_models = df[model_col].unique()
-            unique_regions = df[region_col].unique()
+            pivot_data = df.groupby([region_col, model_col]).size().unstack(fill_value=0)
+            pivot_data["Total"] = pivot_data.sum(axis=1)
+            pivot_data.loc["Grand Total"] = pivot_data.sum()
+            pivot_data = pivot_data.reset_index().rename(columns={region_col: "Region"})
             
-            breakdown_data = []
-            
-            for region in sorted(unique_regions):
-                row_data = {"Region": region}
-                region_df = df[df[region_col] == region]
-                
-                for model in unique_models:
-                    model_count = len(region_df[region_df[model_col] == model])
-                    if model_count > 0:
-                        row_data[model] = model_count
-                
-                row_data["Total"] = len(region_df)
-                breakdown_data.append(row_data)
-            
-            grand_total_row = {"Region": "Grand Total"}
-            for model in unique_models:
-                model_total = len(df[df[model_col] == model])
-                if model_total > 0:
-                    grand_total_row[model] = model_total
-            grand_total_row["Total"] = len(df)
-            breakdown_data.append(grand_total_row)
-            
-            breakdown_df = pd.DataFrame(breakdown_data)
-            
-            breakdown_df = breakdown_df.fillna(0)
-            for col in breakdown_df.columns:
-                if col != "Region":
-                    breakdown_df[col] = breakdown_df[col].astype(int)
-            
-            st.dataframe(
-                breakdown_df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Region": st.column_config.TextColumn("Region", width="medium", pinned=True),
-                    "Total": st.column_config.NumberColumn("Grand Total", width="small")
-                }
-            )
+            st.dataframe(pivot_data, use_container_width=True, hide_index=True)
         else:
             st.info(f"{region_label} column not found in Excel file")
 
@@ -906,6 +585,7 @@ def show_category_metrics_with_region(df, model_col, asset_type):
 # CHART FUNCTIONS
 # ============================================================================
 
+@st.cache_data
 def create_pie_chart(df, model_col):
     """Create pie chart for asset distribution"""
     if not model_col:
@@ -937,6 +617,7 @@ def create_pie_chart(df, model_col):
     )
     return fig
 
+@st.cache_data
 def create_department_chart(df, dept_col):
     """Create bar chart for department distribution"""
     if not dept_col:
@@ -963,32 +644,6 @@ def create_department_chart(df, dept_col):
     )
     return fig
 
-def create_location_chart(df, location_col):
-    """Create bar chart for location distribution"""
-    if not location_col:
-        return None
-    
-    loc_counts = df[location_col].value_counts().head(10)
-    
-    fig = px.bar(
-        x=loc_counts.values,
-        y=loc_counts.index,
-        orientation='h',
-        title=f"Top 10 {location_col} by Asset Count",
-        labels={'x': 'Asset Count', 'y': location_col},
-        color_discrete_sequence=['#28A745']
-    )
-    
-    fig.update_layout(
-        showlegend=False, 
-        height=400, 
-        margin=dict(t=50, b=50, l=0, r=0),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font=dict(family="Poppins, sans-serif", color="#2C3E50")
-    )
-    return fig
-
 # ============================================================================
 # SIDEBAR CONTROLS
 # ============================================================================
@@ -997,136 +652,46 @@ def sidebar_controls(df, asset_type, model_col, type_col):
     """Create sidebar filter controls"""
     st.sidebar.markdown('<div class="sidebar-section">Asset Filters</div>', unsafe_allow_html=True)
 
-    # Model Filter
-    model_filter = []
-    if model_col:
-        filter_label = f"{model_col}" if asset_type == "Workstation" else f"{model_col}"
-        model_filter = st.sidebar.multiselect(
-            f"Filter by {model_col}",
-            df[model_col].unique(),
-            help=f"Select one or more {model_col.lower()} to filter"
-        )
-
-    # Type Filter
-    type_filter = []
-    if type_col:
-        type_label = f"{type_col}"
-        type_filter = st.sidebar.multiselect(
-            f"Filter by {type_col}",
-            df[type_col].unique(),
-            help=f"Select asset type to filter"
+    filters = {}
+    
+    # Define filter columns
+    filter_configs = [
+        (model_col, f"Filter by {model_col}"),
+        (type_col, f"Filter by {type_col}"),
+        (find_column(df, ["site", "user site", "usersite"]), "Filter by Site"),
+        (find_column(df, ["location"]), "Filter by Location"),
+        (find_column(df, ["department", "user department"]), "Filter by Department"),
+    ]
+    
+    if asset_type == "Workstation":
+        filter_configs.extend([
+            (find_column(df, ["workstation status", "workstationstatus"]), "Filter by Status"),
+            (find_column(df, ["place"]), "Filter by Place")
+        ])
+    else:
+        filter_configs.append(
+            (find_column(df, ["programme", "program"]), "Filter by Programme")
         )
     
-    # Site Filter
-    site_col = find_column(df, ["site", "user site", "usersite"])
-    site_filter = []
-    if site_col:
-        site_filter = st.sidebar.multiselect(
-            f"Filter by {site_col}",
-            df[site_col].unique(),
-            help="Select site location"
-        )
-    
-    # Location Filter
-    location_col = find_column(df, ["location"])
-    location_filter = []
-    if location_col:
-        location_filter = st.sidebar.multiselect(
-            f"Filter by {location_col}",
-            df[location_col].unique(),
-            help="Select physical location"
-        )
-    
-    # Department Filter
-    dept_col = find_column(df, ["department", "user department"])
-    dept_filter = []
-    if dept_col:
-        dept_filter = st.sidebar.multiselect(
-            f"Filter by {dept_col}",
-            df[dept_col].unique(),
-            help="Select department"
-        )
-    
-    # Workstation Status Filter
-    status_col = find_column(df, ["workstation status", "workstationstatus"])
-    status_filter = []
-    if asset_type == "Workstation" and status_col:
-        status_filter = st.sidebar.multiselect(
-            f"Filter by {status_col}",
-            df[status_col].unique(),
-            help="Select workstation status"
-        )
-    
-    # State Filter
-    state_col = find_column(df, ["state"])
-    state_filter = []
-    if state_col:
-        state_filter = st.sidebar.multiselect(
-            f"Filter by {state_col}",
-            df[state_col].unique(),
-            help="Select current state"
-        )
-
-    # Place Filter (Workstation)
-    place_col = find_column(df, ["place"])
-    place_filter = []
-    if asset_type == "Workstation" and place_col:
-        place_filter = st.sidebar.multiselect(
-            f"Filter by {place_col}",
-            df[place_col].unique(),
-            help="Select place/country"
-        )
-
-    # Programme Filter (Mobile)
-    programme_col = find_column(df, ["programme", "program"])
-    programme_filter = []
-    if asset_type == "Mobile" and programme_col:
-        programme_filter = st.sidebar.multiselect(
-            f"Filter by {programme_col}",
-            df[programme_col].unique(),
-            help="Select programme"
-        )
+    for col, label in filter_configs:
+        if col and col in df.columns:
+            filters[col] = st.sidebar.multiselect(label, df[col].unique())
 
     st.sidebar.markdown('<div class="sidebar-section">Replacement Planning</div>', unsafe_allow_html=True)
-    
-    # Expired/Replacement Filter
-    expired_models = []
-    if model_col:
-        expired_models = st.sidebar.multiselect(
-            f"Mark for Replacement",
-            options=df[model_col].unique(),
-            help="Select assets that need replacement"
-        )
-
-    # Search
-    st.sidebar.markdown('<div class="sidebar-section">Search</div>', unsafe_allow_html=True)
-    search_query = st.sidebar.text_input(
-        "Search all fields",
-        placeholder="Enter search term...",
-        help="Search across all columns"
+    expired_models = st.sidebar.multiselect(
+        "Mark for Replacement",
+        options=df[model_col].unique() if model_col else [],
+        help="Select assets that need replacement"
     )
+
+    st.sidebar.markdown('<div class="sidebar-section">Search</div>', unsafe_allow_html=True)
+    search_query = st.sidebar.text_input("Search all fields", placeholder="Enter search term...")
 
     # Apply filters
     filtered_df = df.copy()
-
-    if model_filter and model_col:
-        filtered_df = filtered_df[filtered_df[model_col].isin(model_filter)]
-    if type_filter and type_col:
-        filtered_df = filtered_df[filtered_df[type_col].isin(type_filter)]
-    if site_filter and site_col:
-        filtered_df = filtered_df[filtered_df[site_col].isin(site_filter)]
-    if location_filter and location_col:
-        filtered_df = filtered_df[filtered_df[location_col].isin(location_filter)]
-    if dept_filter and dept_col:
-        filtered_df = filtered_df[filtered_df[dept_col].isin(dept_filter)]
-    if status_filter and status_col:
-        filtered_df = filtered_df[filtered_df[status_col].isin(status_filter)]
-    if state_filter and state_col:
-        filtered_df = filtered_df[filtered_df[state_col].isin(state_filter)]
-    if place_filter and place_col:
-        filtered_df = filtered_df[filtered_df[place_col].isin(place_filter)]
-    if programme_filter and programme_col:
-        filtered_df = filtered_df[filtered_df[programme_col].isin(programme_filter)]
+    for col, selected_values in filters.items():
+        if selected_values:
+            filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
 
     expired_df = None
     if expired_models and model_col:
@@ -1218,6 +783,104 @@ uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
 
 if uploaded_file is not None:
     try:
+        # Validate file format
+        uploaded_file.seek(0)
+        file_bytes = uploaded_file.read()
+        
+        if not file_bytes.startswith(b'PK'):
+            st.error("File Format Error")
+            st.warning("The uploaded file is not a valid Excel (.xlsx) file.")
+            
+            with st.expander("Troubleshooting Guide - Click to Expand", expanded=True):
+                st.markdown("""
+                ### Common Causes & Solutions:
+                
+                #### 1. File Permission Restrictions (Most Common)
+                Your Excel file may have permission restrictions (Internal Use, Confidential, etc.)
+                
+                **Solution:**
+                - Open file in Microsoft Excel
+                - Click **File** → **Info** → **Protect Workbook**
+                - Remove all restrictions/permissions
+                - **Save As** → Choose **Excel Workbook (*.xlsx)**
+                - Upload the new unrestricted file
+                
+                ---
+                
+                #### 2. Wrong File Format
+                File might be `.xls` (old format) renamed to `.xlsx`
+                
+                **Solution:**
+                - Open in Excel
+                - **File** → **Save As**
+                - Select format: **Excel Workbook (*.xlsx)**
+                - Save with new name
+                
+                ---
+                
+                #### 3. Corrupted File
+                File may be damaged during transfer
+                
+                **Solution:**
+                - Open file in Excel (Excel may auto-repair)
+                - If warning appears, click **Yes** to repair
+                - **Save As** new file
+                - Try uploading new file
+                
+                ---
+                
+                #### 4. Password Protected
+                File has password protection
+                
+                **Solution:**
+                - Open in Excel
+                - **File** → **Info** → **Protect Workbook**
+                - Remove password
+                - Save and retry
+                
+                ---
+                
+                #### 5. CSV Saved as .xlsx
+                CSV file with extension changed to .xlsx
+                
+                **Solution:**
+                - Open file in Excel
+                - **Save As** → **Excel Workbook (*.xlsx)**
+                
+                ---
+                
+                #### 6. Incomplete Download
+                File not fully downloaded from email/cloud
+                
+                **Solution:**
+                - Download file again
+                - Verify file size matches original
+                - Try uploading again
+                """)
+                
+                st.info("Quick Fix: Use the sample templates below, then copy your data into them.")
+                
+                col_sample1, col_sample2 = st.columns(2)
+                with col_sample1:
+                    sample_ws = create_sample_workstation_file()
+                    st.download_button(
+                        label="Download Workstation Template",
+                        data=sample_ws,
+                        file_name="workstation_template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                with col_sample2:
+                    sample_mb = create_sample_mobile_file()
+                    st.download_button(
+                        label="Download Mobile Template",
+                        data=sample_mb,
+                        file_name="mobile_template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+            st.stop()
+        
         # Read Excel file
         uploaded_file.seek(0)
         xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
@@ -1357,7 +1020,7 @@ if uploaded_file is not None:
         st.sidebar.markdown("""
             <div style='text-align: center; color: #7B8794; font-size: 0.85em;'>
                 <strong>Asset Management Dashboard System</strong><br/>
-                Version 2.3.0<br/>
+                Version 2.4.0<br/>
                 <br/>
                 &copy; 2025 All rights reserved.<br/>
                 Developed by <strong>MKAR</strong><br/>
@@ -1409,7 +1072,7 @@ if uploaded_file is not None:
                 st.info("Department data not available")
 
         location_col = find_column(df_filtered, ["location"])
-        loc_fig = create_location_chart(df_filtered, location_col)
+        loc_fig = create_department_chart(df_filtered, location_col)
         if loc_fig:
             st.plotly_chart(loc_fig, use_container_width=True)
 
@@ -1427,7 +1090,6 @@ if uploaded_file is not None:
         display_columns = [col for col in df_filtered.columns if col != year_col]
         
         st.info(f"Displaying {len(display_columns)} columns from Excel file")
-        
         st.dataframe(df_filtered[display_columns], use_container_width=True, height=600)
 
     except Exception as e:
@@ -1505,11 +1167,11 @@ else:
                 use_container_width=True
             )
         
-        st.info("""
+        st.success("""
         **Your Data Security**  
-        - Files are NOT stored on any server
-        - Processing happens locally in your browser
-        - Data stays on your computer only
+        - Files are NOT stored on any server  
+        - Processing happens in memory only  
+        - Data stays completely private
         """)
     
     else:
@@ -1556,10 +1218,3 @@ else:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-        
-        st.info("""
-        **Keselamatan Data Anda**  
-        - Fail TIDAK disimpan di server
-        - Pemprosesan secara lokal
-        - Data kekal di komputer anda
-        """)
