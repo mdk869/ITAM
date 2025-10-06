@@ -1281,10 +1281,10 @@ else:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-            
+
         st.success("""
-        **Your Data Security**  
-        - Files are NOT stored on any server  
-        - Processing happens in memory only  
-        - Data stays completely private
+        **Keselamatan Data Anda**  
+        - Fail TIDAK disimpan di mana-mana pelayan  
+        - Pemprosesan berlaku sepenuhnya dalam memori
+        - Data anda kekal sepenuhnya peribadi
         """)
