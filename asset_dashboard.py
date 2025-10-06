@@ -654,28 +654,91 @@ def sidebar_controls(df, asset_type, model_col, type_col):
 
     filters = {}
     
-    # Define filter columns
-    filter_configs = [
-        (model_col, f"Filter by {model_col}"),
-        (type_col, f"Filter by {type_col}"),
-        (find_column(df, ["site", "user site", "usersite"]), "Filter by Site"),
-        (find_column(df, ["location"]), "Filter by Location"),
-        (find_column(df, ["department", "user department"]), "Filter by Department"),
-    ]
-    
-    if asset_type == "Workstation":
-        filter_configs.extend([
-            (find_column(df, ["workstation status", "workstationstatus"]), "Filter by Status"),
-            (find_column(df, ["place"]), "Filter by Place")
-        ])
-    else:
-        filter_configs.append(
-            (find_column(df, ["programme", "program"]), "Filter by Programme")
+    # Model Filter
+    if model_col:
+        filters[model_col] = st.sidebar.multiselect(
+            f"Filter by {model_col}",
+            df[model_col].unique(),
+            key="filter_model"
         )
     
-    for col, label in filter_configs:
-        if col and col in df.columns:
-            filters[col] = st.sidebar.multiselect(label, df[col].unique())
+    # Type Filter
+    if type_col:
+        filters[type_col] = st.sidebar.multiselect(
+            f"Filter by {type_col}",
+            df[type_col].unique(),
+            key="filter_type"
+        )
+    
+    # Site Filter
+    site_col = find_column(df, ["site", "user site", "usersite"])
+    if site_col:
+        filters[site_col] = st.sidebar.multiselect(
+            f"Filter by {site_col}",
+            df[site_col].unique(),
+            key="filter_site"
+        )
+    
+    # Location Filter
+    location_col = find_column(df, ["location"])
+    if location_col:
+        filters[location_col] = st.sidebar.multiselect(
+            f"Filter by {location_col}",
+            df[location_col].unique(),
+            key="filter_location"
+        )
+    
+    # Department Filter
+    dept_col = find_column(df, ["department", "user department"])
+    if dept_col:
+        filters[dept_col] = st.sidebar.multiselect(
+            f"Filter by {dept_col}",
+            df[dept_col].unique(),
+            key="filter_department"
+        )
+    
+    # Workstation-specific filters
+    if asset_type == "Workstation":
+        status_col = find_column(df, ["workstation status", "workstationstatus"])
+        if status_col:
+            filters[status_col] = st.sidebar.multiselect(
+                f"Filter by {status_col}",
+                df[status_col].unique(),
+                key="filter_status"
+            )
+        
+        place_col = find_column(df, ["place"])
+        if place_col:
+            filters[place_col] = st.sidebar.multiselect(
+                f"Filter by {place_col}",
+                df[place_col].unique(),
+                key="filter_place"
+            )
+        
+        state_col = find_column(df, ["state"])
+        if state_col:
+            filters[state_col] = st.sidebar.multiselect(
+                f"Filter by {state_col}",
+                df[state_col].unique(),
+                key="filter_state"
+            )
+    else:
+        # Mobile-specific filters
+        programme_col = find_column(df, ["programme", "program"])
+        if programme_col:
+            filters[programme_col] = st.sidebar.multiselect(
+                f"Filter by {programme_col}",
+                df[programme_col].unique(),
+                key="filter_programme"
+            )
+        
+        state_col = find_column(df, ["state"])
+        if state_col:
+            filters[state_col] = st.sidebar.multiselect(
+                f"Filter by {state_col}",
+                df[state_col].unique(),
+                key="filter_state_mobile"
+            )
 
     st.sidebar.markdown('<div class="sidebar-section">Replacement Planning</div>', unsafe_allow_html=True)
     expired_models = st.sidebar.multiselect(
@@ -1218,3 +1281,10 @@ else:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
+            
+        st.success("""
+        **Your Data Security**  
+        - Files are NOT stored on any server  
+        - Processing happens in memory only  
+        - Data stays completely private
+        """)
