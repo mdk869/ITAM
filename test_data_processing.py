@@ -20,10 +20,16 @@ from itam.ui import (
     CANDIDATE_DETAIL_COLUMNS,
     CANDIDATE_DETAIL_OPTIONAL_COLUMNS,
     DISPLAY_LABELS,
+    AUDIT_SEARCH_COLUMNS,
+    AUDIT_CURATED_COLUMNS,
     PLANNING_FILTER_RESET_COLUMNS,
     PLANNING_SEARCH_COLUMNS,
+    _clear_audit_filters,
     _chronological_counts,
     _clear_replacement_planning_filters,
+    add_finding_categories,
+    audit_table_columns,
+    clean_asset_count,
     _meaningful_optional_columns,
     _top_n_counts,
     _values,
@@ -167,6 +173,76 @@ class SearchExportAndEscapingTests(unittest.TestCase):
 
     def test_html_escaping_is_available_as_a_pure_helper(self):
         self.assertNotIn("<script>", escape("<script>alert(1)</script>"))
+
+    def test_audit_search_is_literal_and_limited_to_audit_fields(self):
+        source = pd.DataFrame({
+            "asset_tag": ["ABC[123]", "OTHER"],
+            "model": ["Dell", "A+B"],
+            "ITAM Audit Findings": ["", "Needs review"],
+            "unrelated": ["A+B", "ABC[123]"],
+        })
+        search_columns = [column for column in AUDIT_SEARCH_COLUMNS if column in source.columns]
+        result = apply_literal_search(source, "ABC[123]", columns=search_columns)
+        self.assertEqual(result.index.tolist(), [0])
+
+
+class AuditPresentationTests(unittest.TestCase):
+    def test_finding_categories_are_presentation_only_and_prioritized(self):
+        source = pd.DataFrame({
+            "ITAM Duplicate Serial": [True, False, False, False, False],
+            "ITAM Missing Core Identity": [False, True, False, False, False],
+            "ITAM State Review Required": [False, False, True, False, False],
+            "Warranty Status": ["Active", "Active", "Active", "Expired", "Active"],
+            "ITAM Finding Count": [1, 1, 1, 1, 0],
+        })
+        original_columns = list(source.columns)
+        result = add_finding_categories(source)
+        self.assertEqual(result["Finding Category"].tolist(), [
+            "Duplicate Identity", "Missing Core Identity", "Lifecycle / State Review", "Warranty", "Clean",
+        ])
+        self.assertEqual(list(source.columns), original_columns)
+
+    def test_clean_asset_count_uses_finding_count(self):
+        self.assertEqual(clean_asset_count(pd.DataFrame({"ITAM Finding Count": [0, 1, 0]})), 2)
+
+    def test_audit_filter_callback_restores_defaults(self):
+        import unittest.mock
+        state = {"audit-severity": ["High"], "audit-review": "Yes", "audit-category": ["Warranty"], "audit-type": ["Tablet"], "audit-state": ["In Use"], "audit-site": ["HQ"], "audit-search": "old"}
+        with unittest.mock.patch("itam.ui.st.session_state", state):
+            _clear_audit_filters()
+        self.assertEqual(state, {"audit-severity": [], "audit-review": "All", "audit-category": [], "audit-type": [], "audit-state": [], "audit-site": [], "audit-search": ""})
+
+    def test_imei_is_optional_in_curated_audit_columns(self):
+        with_imei = pd.DataFrame({"imei": ["123"], "asset_tag": ["A"]})
+        without_imei = pd.DataFrame({"imei": [pd.NA], "asset_tag": ["A"]})
+        self.assertIn("imei", audit_table_columns(with_imei))
+        self.assertNotIn("imei", audit_table_columns(without_imei))
+
+    def test_audit_export_uses_curated_columns_and_readable_labels(self):
+        source = pd.DataFrame({
+            "ITAM Highest Severity": ["High"], "ITAM Review Required": [True],
+            "asset_type": ["Workstation"], "asset_tag": ["A1"], "serial_number": ["S1"],
+            "model": ["Dell"], "state": ["In Use"], "ITAM Lifecycle Status": ["Active"],
+            "Finding Category": ["Duplicate Identity"],
+            "ITAM Audit Findings": ["[High] Duplicate Serial"], "site": ["HQ"],
+            "department": ["IT"], "imei": [pd.NA], "unrelated": ["hidden"],
+        })
+        columns = audit_table_columns(source)
+        exported = prepare_export_dataframe(source, columns)
+        self.assertEqual(columns, [column for column in AUDIT_CURATED_COLUMNS if column != "imei"])
+        self.assertEqual(list(exported.columns), [
+            "Severity", "Review Required", "Asset Type", "Asset Tag", "Serial Number",
+            "Model / Product", "Source State", "Lifecycle", "Finding Category",
+            "Audit Notes", "Site", "Department",
+        ])
+        self.assertNotIn("ITAM", " ".join(exported.columns))
+        self.assertEqual(exported.loc[0, "Audit Notes"], "[High] Duplicate Serial")
+
+    def test_empty_audit_export_dataframe_has_no_rows(self):
+        source = pd.DataFrame(columns=["asset_tag", "ITAM Audit Findings"])
+        exported = prepare_export_dataframe(source, audit_table_columns(source))
+        self.assertIsNotNone(exported)
+        self.assertTrue(exported.empty)
 
 
 class DisplayColumnTests(unittest.TestCase):

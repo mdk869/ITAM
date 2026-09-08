@@ -44,6 +44,12 @@ DISPLAY_LABELS = {
     "ITAM Missing Core Identity": "Missing Core Identity",
 }
 
+AUDIT_CURATED_COLUMNS = [
+    "ITAM Highest Severity", "ITAM Review Required", "asset_type", "asset_tag",
+    "serial_number", "model", "state", "ITAM Lifecycle Status", "Finding Category",
+    "ITAM Audit Findings", "site", "department", "imei",
+]
+
 EXPORT_PRESETS = {
     "Standard Asset View": [
         "asset_type", "asset_tag", "serial_number", "model", "state", "user",
@@ -51,10 +57,7 @@ EXPORT_PRESETS = {
         "ITAM Lifecycle Status",
     ],
     "Audit Findings": [
-        "asset_type", "asset_tag", "serial_number", "model", "state", "user",
-        "site", "purchase_year", "Asset Age", "ITAM Lifecycle Status",
-        "Warranty Status", "ITAM Finding Count", "ITAM Highest Severity",
-        "ITAM Review Required", "ITAM Audit Findings",
+        *AUDIT_CURATED_COLUMNS,
     ],
     "Replacement Planning": None,  # populated below from CANDIDATE_DETAIL_COLUMNS
     "Full Dataset": None,
@@ -82,6 +85,17 @@ PLANNING_SEARCH_COLUMNS = [
 
 PLANNING_FILTER_RESET_COLUMNS = [
     "model", "site", "department", "state", "workstation_status", "programme", "purchase_year",
+]
+
+AUDIT_SEARCH_COLUMNS = [
+    "asset_tag", "serial_number", "model", "user", "employee_id", "site",
+    "location", "department", "programme", "imei", "ITAM Audit Findings",
+]
+AUDIT_FILTER_RESET_COLUMNS = ["ITAM Highest Severity", "asset_type", "state", "site"]
+AUDIT_SEVERITY_ORDER = ["Critical", "High", "Medium", "Low", "Info", "None"]
+AUDIT_CATEGORY_ORDER = [
+    "Duplicate Identity", "Missing Core Identity", "Lifecycle / State Review",
+    "Warranty", "Other", "Clean",
 ]
 
 
@@ -139,6 +153,43 @@ def _meaningful_optional_columns(df, columns, optional_columns):
         column for column in columns
         if column not in optional_columns or (column in df.columns and df[column].notna().any())
     ]
+
+
+def classify_finding_category(row):
+    """Classify an audit row for display without changing locked audit fields."""
+    if any(bool(row.get(column, False)) for column in [
+        "ITAM Duplicate Asset Tag", "ITAM Duplicate Serial", "ITAM Duplicate IMEI",
+    ]):
+        return "Duplicate Identity"
+    if bool(row.get("ITAM Missing Core Identity", False)):
+        return "Missing Core Identity"
+    if bool(row.get("ITAM State Review Required", False)):
+        return "Lifecycle / State Review"
+    if str(row.get("Warranty Status", "")).strip() in {"Expired", "Expiring Soon"}:
+        return "Warranty"
+    finding_count = row.get("ITAM Finding Count", 0)
+    if pd.isna(finding_count):
+        finding_count = 0
+    if int(finding_count) == 0:
+        return "Clean"
+    return "Other"
+
+
+def add_finding_categories(df):
+    """Return a copy with a presentation-only Finding Category column."""
+    result = df.copy()
+    result["Finding Category"] = result.apply(classify_finding_category, axis=1)
+    return result
+
+
+def clean_asset_count(df):
+    """Count assets with no findings using the authoritative finding count."""
+    return int(df.get("ITAM Finding Count", pd.Series(dtype="int64")).eq(0).sum())
+
+
+def audit_table_columns(df):
+    """Choose readable audit columns, showing IMEI only when it contains data."""
+    return _meaningful_optional_columns(df, AUDIT_CURATED_COLUMNS, {"imei"})
 
 
 def make_display_dataframe(df, columns=None):
@@ -206,12 +257,15 @@ def _download(df, label, filename, key):
     )
 
 
-def render_export_panel(df, scope_label, filename, key):
+def render_export_panel(df, scope_label, filename, key, default_preset="Standard Asset View"):
     """Render a compact, page-local custom Excel export workflow."""
     st.subheader("Export Data")
     st.caption(scope_label)
     preset_options = ["Standard Asset View", "Audit Findings", "Replacement Planning", "Full Dataset", "Custom"]
-    preset = st.selectbox("Column Preset", preset_options, key=f"{key}-preset")
+    preset = st.selectbox(
+        "Column Preset", preset_options, index=preset_options.index(default_preset),
+        key=f"{key}-preset",
+    )
     available_display = make_display_dataframe(df)
     display_to_internal = dict(zip(available_display.columns, df.columns))
     default_internal = resolve_export_columns(df, preset)
@@ -390,36 +444,63 @@ def render_lifecycle_warranty(df, asset_type):
 def render_data_audit(df, asset_type):
     st.title("Data Audit")
     st.caption("Which source-system records need cross-checking?")
-    findings = df[df["ITAM Finding Count"].gt(0)]
+    audited_df = add_finding_categories(df)
     _metric_row([
-        ("Assets Requiring Review", int(df["ITAM Review Required"].sum())),
-        ("High Severity Assets", int(df["ITAM Highest Severity"].eq("High").sum())),
-        ("Assets With Findings", len(findings)),
-        ("Clean Assets", int(df["ITAM Finding Count"].eq(0).sum())),
+        ("Review Required", int(audited_df["ITAM Review Required"].sum())),
+        ("High Severity", int(audited_df["ITAM Highest Severity"].eq("High").sum())),
+        ("Medium Severity", int(audited_df["ITAM Highest Severity"].eq("Medium").sum())),
+        ("Low Severity", int(audited_df["ITAM Highest Severity"].eq("Low").sum())),
+        ("Info", int(audited_df["ITAM Highest Severity"].eq("Info").sum())),
+        ("Clean Assets", clean_asset_count(audited_df)),
     ])
-    audit_df = df.copy()
-    with st.expander("Audit filters", expanded=False):
-        columns = st.columns(3)
-        severity = columns[0].multiselect(DISPLAY_LABELS["ITAM Highest Severity"], _values(df, "ITAM Highest Severity"), key="audit-severity")
-        review = columns[1].selectbox("Review Required", ["All", "Yes", "No"], key="audit-review")
-        asset_types = columns[2].multiselect("Asset Type", _values(df, "asset_type"), key="audit-type")
-        site = st.multiselect("Site", _values(df, "site"), key="audit-site")
-        finding_type = st.multiselect("Finding Type", ["Duplicate Asset Tag", "Duplicate Serial", "Duplicate IMEI", "Missing Core Identity", "Lifecycle / Source State mismatch", "Warranty"], key="audit-finding")
-    if severity:
-        audit_df = audit_df[audit_df["ITAM Highest Severity"].astype(str).isin(severity)]
-    if review != "All":
-        audit_df = audit_df[audit_df["ITAM Review Required"].eq(review == "Yes")]
-    audit_df = _filtered_by_selections(audit_df, {"asset_type": asset_types, "site": site})
-    if finding_type:
-        terms = {"Duplicate Asset Tag": "Duplicate Asset Tag", "Duplicate Serial": "Duplicate Serial", "Duplicate IMEI": "Duplicate IMEI", "Missing Core Identity": "Missing core identity", "Lifecycle / Source State mismatch": "lifecycle is Expired", "Warranty": "Warranty"}
-        audit_df = audit_df[audit_df["ITAM Audit Findings"].apply(lambda value: any(terms[item].casefold() in str(value).casefold() for item in finding_type))]
 
-    audit_columns = ["asset_type", "asset_tag", "serial_number", "model", "state", "ITAM Lifecycle Status", "ITAM Highest Severity", "ITAM Review Required", "ITAM Finding Count", "ITAM Audit Findings", "user", "site", "purchase_year", "Asset Age", "Warranty Status"]
-    st.dataframe(_display_frame(audit_df, audit_columns), use_container_width=True, height=520, hide_index=True)
+    for title, column, order, key, height in [
+        ("Severity Distribution", "ITAM Highest Severity", AUDIT_SEVERITY_ORDER, "audit-severity-distribution", 260),
+        ("Finding Categories", "Finding Category", AUDIT_CATEGORY_ORDER, "audit-finding-categories", 300),
+    ]:
+        st.subheader(title)
+        counts = audited_df[column].value_counts().reindex(order, fill_value=0)
+        counts = counts[counts.gt(0)].sort_values()
+        if not counts.empty:
+            figure = px.bar(x=counts.values, y=counts.index, orientation="h", labels={"x": "Assets", "y": title})
+            figure.update_layout(height=height, margin=dict(t=15, b=20, l=10, r=10), showlegend=False)
+            st.plotly_chart(figure, use_container_width=True, key=key)
+
+    query = st.text_input("Search findings", placeholder="Asset Tag, Serial Number, Model, User, Site, IMEI, Audit Notes...", key="audit-search")
+    with st.expander("Audit filters", expanded=False):
+        clear_col, _ = st.columns([1, 5])
+        with clear_col:
+            st.write("")
+            st.button("Clear audit filters", key="audit-clear-filters", on_click=_clear_audit_filters, use_container_width=True)
+        columns = st.columns(3)
+        with columns[0]:
+            severity = st.multiselect("Severity", _values(df, "ITAM Highest Severity"), key="audit-severity")
+            categories = st.multiselect("Finding Category", AUDIT_CATEGORY_ORDER, key="audit-category")
+        with columns[1]:
+            review = st.selectbox("Review Required", ["All", "Yes", "No"], key="audit-review")
+            asset_types = st.multiselect("Asset Type", _values(df, "asset_type"), key="audit-type")
+        with columns[2]:
+            source_states = st.multiselect("Source State", _values(df, "state"), key="audit-state")
+            site = st.multiselect("Site", _values(df, "site"), key="audit-site")
+    if severity:
+        audited_df = audited_df[audited_df["ITAM Highest Severity"].astype(str).isin(severity)]
+    if review != "All":
+        audited_df = audited_df[audited_df["ITAM Review Required"].eq(review == "Yes")]
+    audited_df = _filtered_by_selections(audited_df, {"asset_type": asset_types, "state": source_states, "site": site, "Finding Category": categories})
+    if query:
+        search_columns = [column for column in AUDIT_SEARCH_COLUMNS if column in audited_df.columns]
+        audited_df = apply_literal_search(audited_df, query, columns=search_columns)
+
+    st.caption(f"Showing {len(audited_df):,} of {len(df):,} audited assets")
+    if audited_df.empty:
+        st.info("No audited assets match the current filters.")
+    else:
+        st.dataframe(_display_frame(audited_df, audit_table_columns(audited_df)), use_container_width=True, height=520, hide_index=True)
     with st.expander("Export Data", expanded=False):
         render_export_panel(
-            audit_df, "Current Audit Results",
+            audited_df, "Current Audit Results",
             f"assetlens_audit_findings_{pd.Timestamp.now():%Y-%m-%d}.xlsx", "export-audit",
+            default_preset="Audit Findings",
         )
 
 
@@ -545,6 +626,17 @@ def _clear_replacement_planning_filters():
     for column in PLANNING_FILTER_RESET_COLUMNS:
         st.session_state[f"replacement-{column}"] = []
     st.session_state["replacement-search"] = ""
+
+
+def _clear_audit_filters():
+    """Reset Data Audit widget state from a pre-render callback."""
+    st.session_state["audit-severity"] = []
+    st.session_state["audit-review"] = "All"
+    st.session_state["audit-category"] = []
+    st.session_state["audit-type"] = []
+    st.session_state["audit-state"] = []
+    st.session_state["audit-site"] = []
+    st.session_state["audit-search"] = ""
 
 
 def render_replacement_planning(df, asset_type):
