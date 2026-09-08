@@ -431,6 +431,141 @@ def get_warranty_status(df):
     expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
     return df_temp, expired_warranty_df
 
+
+def run_itam_audit(df):
+    """Add row-level ITAM audit findings without changing source values."""
+    audited_df = df.copy()
+    row_findings = [[] for _ in audited_df.index]
+    row_positions = pd.Series(range(len(audited_df)), index=audited_df.index)
+
+    severity_priority = {
+        "Critical": 5, "High": 4, "Medium": 3,
+        "Low": 2, "Info": 1, "None": 0,
+    }
+
+    def is_missing(value):
+        if pd.isna(value):
+            return True
+        return str(value).strip() == "" or str(value).strip().casefold() == "na"
+
+    def normalized_identifier(column):
+        if column not in audited_df.columns:
+            return pd.Series(pd.NA, index=audited_df.index, dtype="string")
+        normalized = audited_df[column].astype("string").str.strip().str.casefold()
+        return normalized.where(normalized.notna() & normalized.ne("") & normalized.ne("na"))
+
+    def add_finding(position, rule, severity, message):
+        row_findings[position].append({
+            "rule": rule,
+            "severity": severity,
+            "message": message,
+        })
+
+    def add_duplicate_flags(column, flag_column, rule, label):
+        normalized = normalized_identifier(column)
+        duplicate_mask = normalized.notna() & normalized.duplicated(keep=False)
+        audited_df[flag_column] = duplicate_mask.to_numpy()
+        for index in audited_df.index[duplicate_mask]:
+            position = row_positions.loc[index]
+            add_finding(position, rule, "High", f"Duplicate {label}.")
+
+    add_duplicate_flags(
+        "asset_tag", "ITAM Duplicate Asset Tag",
+        "DUPLICATE_ASSET_TAG", "Asset Tag"
+    )
+    add_duplicate_flags(
+        "serial_number", "ITAM Duplicate Serial",
+        "DUPLICATE_SERIAL", "Serial Number"
+    )
+
+    asset_types = audited_df.get("asset_type", pd.Series(index=audited_df.index, dtype="object"))
+    imei_normalized = normalized_identifier("imei")
+    imei_applicable = asset_types.astype("string").str.casefold().isin({"smartphone", "tablet"})
+    duplicate_imei = imei_applicable & imei_normalized.notna() & imei_normalized.duplicated(keep=False)
+    audited_df["ITAM Duplicate IMEI"] = duplicate_imei.to_numpy()
+    for index in audited_df.index[duplicate_imei]:
+        position = row_positions.loc[index]
+        add_finding(position, "DUPLICATE_IMEI", "High", "Duplicate IMEI.")
+
+    core_columns = [
+        ("asset_tag", "asset_tag"),
+        ("serial_number", "serial_number"),
+        ("model", "model"),
+        ("purchase_year", "purchase_year"),
+    ]
+    missing_identity = []
+    for index, row in audited_df.iterrows():
+        missing_fields = [
+            label for column, label in core_columns
+            if column not in audited_df.columns or is_missing(row[column])
+        ]
+        missing_identity.append(bool(missing_fields))
+        if missing_fields:
+            position = row_positions.loc[index]
+            add_finding(
+                position,
+                "MISSING_CORE_IDENTITY",
+                "Medium",
+                "Missing core identity: " + ", ".join(missing_fields) + ".",
+            )
+    audited_df["ITAM Missing Core Identity"] = missing_identity
+
+    active_states = {"in use", "in store", "in repair"}
+    state_values = audited_df.get("state", pd.Series(index=audited_df.index, dtype="object"))
+    lifecycle_values = audited_df.get(
+        "ITAM Lifecycle Status", pd.Series(index=audited_df.index, dtype="object")
+    )
+    state_mismatch = (
+        lifecycle_values.astype("string").eq("Expired")
+        & state_values.astype("string").str.strip().str.casefold().isin(active_states)
+    )
+    audited_df["ITAM State Review Required"] = state_mismatch.to_numpy()
+    for index in audited_df.index[state_mismatch]:
+        position = row_positions.loc[index]
+        source_state = audited_df.at[index, "state"]
+        add_finding(
+            position,
+            "LIFECYCLE_STATE_MISMATCH",
+            "Medium",
+            f"ITAM lifecycle is Expired but source State is {source_state}.",
+        )
+
+    warranty_status = audited_df.get(
+        "Warranty Status", pd.Series(index=audited_df.index, dtype="object")
+    ).astype("string")
+    for index in audited_df.index[warranty_status.eq("Expired")]:
+        add_finding(row_positions.loc[index], "EXPIRED_WARRANTY", "Low", "Warranty is expired.")
+    for index in audited_df.index[warranty_status.eq("Expiring Soon")]:
+        add_finding(row_positions.loc[index], "EXPIRING_WARRANTY", "Info", "Warranty is expiring soon.")
+
+    replacement_candidate = lifecycle_values.astype("string").eq("Expired")
+    audited_df["ITAM Replacement Candidate"] = replacement_candidate.to_numpy()
+
+    finding_counts = []
+    highest_severities = []
+    review_required = []
+    finding_text = []
+    review_rules = {
+        "DUPLICATE_ASSET_TAG", "DUPLICATE_SERIAL", "DUPLICATE_IMEI",
+        "MISSING_CORE_IDENTITY", "LIFECYCLE_STATE_MISMATCH",
+    }
+    for findings in row_findings:
+        finding_counts.append(len(findings))
+        highest_severities.append(
+            max((finding["severity"] for finding in findings), key=severity_priority.get, default="None")
+        )
+        review_required.append(any(finding["rule"] in review_rules for finding in findings))
+        finding_text.append("; ".join(
+            f"[{finding['severity']}] {finding['message'].rstrip('.') }"
+            for finding in findings
+        ))
+
+    audited_df["ITAM Finding Count"] = finding_counts
+    audited_df["ITAM Highest Severity"] = highest_severities
+    audited_df["ITAM Review Required"] = review_required
+    audited_df["ITAM Audit Findings"] = finding_text
+    return audited_df
+
 # ============================================================================
 # DATA VALIDATION
 # ============================================================================
@@ -1141,12 +1276,32 @@ if uploaded_file is not None:
         expired_warranty_df = None
         if asset_type == "Workstation":
             df, expired_warranty_df = get_warranty_status(df)
+        df = run_itam_audit(df)
 
         # Data validation
         st.markdown("---")
         with st.expander("Data Validation Report", expanded=False):
             issues = validate_data(df, asset_type, model_col)
             show_validation_issues(issues)
+
+        audit_review_count = int(df["ITAM Review Required"].sum())
+        audit_high_count = int(df["ITAM Highest Severity"].eq("High").sum())
+        replacement_candidate_count = int(df["ITAM Replacement Candidate"].sum())
+        st.markdown('<div class="section-header">ITAM Audit Summary</div>', unsafe_allow_html=True)
+        audit_col1, audit_col2, audit_col3 = st.columns(3)
+        audit_metrics = [
+            (audit_col1, "ASSETS REQUIRING REVIEW", audit_review_count, "card-warning"),
+            (audit_col2, "HIGH SEVERITY FINDINGS", audit_high_count, "card-danger"),
+            (audit_col3, "REPLACEMENT CANDIDATES", replacement_candidate_count, "card-info"),
+        ]
+        for column, label, value, card_class in audit_metrics:
+            with column:
+                st.markdown(f"""
+                    <div class="metric-card {card_class}">
+                        <div class="metric-label">{label}</div>
+                        <h2>{value}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
 
         # Sidebar controls
         df_filtered, df_expired, df_selected_replacement = sidebar_controls(df, asset_type, model_col, type_col)
