@@ -44,6 +44,43 @@ def get_warranty_status(df):
     return df_temp, expired_warranty_df
 
 
+PLANNING_PRIORITY_RANK = {
+    "Priority Review": 1,
+    "Standard Planning": 2,
+    "Low Operational Priority": 3,
+    "Not Candidate": 4,
+}
+
+
+def classify_planning_priority(is_candidate, source_state):
+    """Classify the locked Phase 6A replacement planning priority for one asset.
+
+    This never mutates or re-derives the Replacement Candidate rule; it only
+    reads the existing candidate flag and the raw source State for triage.
+    """
+    if not is_candidate:
+        return "Not Candidate"
+    normalized_state = str(source_state).strip().casefold() if pd.notna(source_state) else ""
+    if normalized_state in {"in use", "in repair"}:
+        return "Priority Review"
+    if normalized_state == "in store":
+        return "Standard Planning"
+    if normalized_state in {"waiting to dispose", "disposed", "expired"}:
+        return "Low Operational Priority"
+    return "Standard Planning"
+
+
+def derive_replacement_planning(df):
+    """Add Planning Priority / Planning Rank without mutating source State values."""
+    df = df.copy()
+    is_candidate = df.get("ITAM Replacement Candidate", pd.Series(False, index=df.index)).fillna(False).astype(bool)
+    source_state = df.get("state", pd.Series(pd.NA, index=df.index))
+    priority = [classify_planning_priority(candidate, state) for candidate, state in zip(is_candidate, source_state)]
+    df["ITAM Planning Priority"] = priority
+    df["ITAM Planning Rank"] = pd.Series(priority, index=df.index).map(PLANNING_PRIORITY_RANK).astype("Int64")
+    return df
+
+
 def run_itam_audit(df):
     """Add row-level ITAM audit findings without changing source values."""
     audited_df = df.copy()
@@ -107,6 +144,7 @@ def run_itam_audit(df):
         add_finding(row_positions.loc[index], "EXPIRING_WARRANTY", "Info", "Warranty is expiring soon.")
 
     audited_df["ITAM Replacement Candidate"] = lifecycle_values.astype("string").eq("Expired").to_numpy()
+    audited_df = derive_replacement_planning(audited_df)
     review_rules = {"DUPLICATE_ASSET_TAG", "DUPLICATE_SERIAL", "DUPLICATE_IMEI", "MISSING_CORE_IDENTITY", "LIFECYCLE_STATE_MISMATCH"}
     finding_counts, highest_severities, review_required, finding_text = [], [], [], []
     for findings in row_findings:

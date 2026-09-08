@@ -255,6 +255,9 @@ def inject_professional_css():
         .al-kpi-success { border-top-color: var(--al-success); }
         .al-kpi-warning { border-top-color: var(--al-warning); }
         .al-kpi-danger { border-top-color: var(--al-danger); }
+        .al-kpi-muted { border-top-color: var(--al-muted); }
+        .al-kpi-navy { border-top-color: var(--al-navy); }
+        .al-kpi-teal { border-top-color: var(--al-teal); }
         .al-kpi-label { color: var(--al-muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
         .al-kpi-value { color: var(--al-text); font-size: 1.8rem; font-weight: 700; line-height: 1.25; margin-top: 0.5rem; }
 

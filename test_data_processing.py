@@ -16,7 +16,22 @@ from itam.data import (
     validate_source_columns,
 )
 from itam.export import export_to_excel
-from itam.ui import DISPLAY_LABELS, format_audit_note, make_display_dataframe, prepare_export_dataframe, resolve_export_columns
+from itam.ui import (
+    CANDIDATE_DETAIL_COLUMNS,
+    CANDIDATE_DETAIL_OPTIONAL_COLUMNS,
+    DISPLAY_LABELS,
+    PLANNING_FILTER_RESET_COLUMNS,
+    PLANNING_SEARCH_COLUMNS,
+    _chronological_counts,
+    _clear_replacement_planning_filters,
+    _meaningful_optional_columns,
+    _top_n_counts,
+    _values,
+    format_audit_note,
+    make_display_dataframe,
+    prepare_export_dataframe,
+    resolve_export_columns,
+)
 
 
 def excel_with_rows(rows):
@@ -239,6 +254,43 @@ class CustomExportTests(unittest.TestCase):
         self.assertEqual(resolve_export_columns(processed, "Custom", []), [])
         self.assertIsNone(prepare_export_dataframe(processed, []))
 
+
+class BreakdownHelperTests(unittest.TestCase):
+    def test_top_n_counts_is_descending_and_blank_filtered(self):
+        series = pd.Series(["Dell", "Dell", "HP", "HP", "HP", "", "  ", "NA", None])
+
+        counts = _top_n_counts(series)
+
+        self.assertEqual(counts.index.tolist(), ["HP", "Dell"])
+        self.assertEqual(counts.tolist(), [3, 2])
+
+    def test_top_n_counts_respects_top_n_limit(self):
+        series = pd.Series(["A", "B", "B", "C", "C", "C", "D", "D", "D", "D"])
+
+        counts = _top_n_counts(series, top_n=2)
+
+        self.assertEqual(counts.index.tolist(), ["D", "C"])
+
+    def test_top_n_counts_empty_for_all_blank_series(self):
+        series = pd.Series(["", "NA", None, "na"])
+
+        counts = _top_n_counts(series)
+
+        self.assertTrue(counts.empty)
+
+    def test_chronological_counts_orders_numeric_values_ascending(self):
+        series = pd.Series([2020, 2018, 2018, 2022, "", None])
+
+        counts = _chronological_counts(series)
+
+        self.assertEqual(counts.index.tolist(), ["2018", "2020", "2022"])
+        self.assertEqual(counts.tolist(), [2, 1, 1])
+
+    def test_chronological_counts_empty_for_blank_series(self):
+        series = pd.Series([None, "", "NA"])
+
+        self.assertTrue(_chronological_counts(series).empty)
+
     def test_export_preset_headings_are_clean_and_unique(self):
         source = CanonicalSchemaTests().workstation()
         processed = build_canonical_dataframe(source, "Workstation")
@@ -255,6 +307,114 @@ class CustomExportTests(unittest.TestCase):
         self.assertIn("Lifecycle", exported.columns)
         self.assertIn("Audit Notes", exported.columns)
 
+
+class ReplacementPlanningFilterAndSearchTests(unittest.TestCase):
+    def candidates(self):
+        return pd.DataFrame({
+            "asset_type": ["Workstation"] * 4,
+            "asset_tag": ["W1", "W2", "W3", "W4"],
+            "serial_number": ["SN.001", "SN002", "SN003", "SN004"],
+            "model": ["Dell Latitude", "HP EliteBook", "Dell Latitude", "Lenovo"],
+            "user": ["Alice", "Bob", "A+B Team", "Not Assigned"],
+            "employee_id": ["E1", "E2", "E3", None],
+            "department": ["IT", "Finance", "", "Not Assigned"],
+            "site": ["HQ", "Branch", "HQ", None],
+            "workstation_status": ["In Use", "In Store", "In Use", ""],
+            "Asset Age": [7, 6, 9, 11],
+            "ITAM Planning Rank": [1, 1, 1, 1],
+        })
+
+    def search_columns(self, df):
+        """Mirror the production guard that only searches columns present in the current frame."""
+        return [column for column in PLANNING_SEARCH_COLUMNS if column in df.columns]
+
+    def test_candidate_search_is_literal_case_insensitive_and_regex_safe(self):
+        source = self.candidates()
+        columns = self.search_columns(source)
+        for query in ["SN.001", "A+B Team", "sn.001"]:
+            result = apply_literal_search(source, query, columns=columns)
+            self.assertEqual(len(result), 1)
+        # A literal "." must only match rows containing an actual dot, not act as a regex wildcard.
+        dot_result = apply_literal_search(source, ".", columns=columns)
+        self.assertEqual(dot_result["asset_tag"].tolist(), ["W1"])
+        # Other regex metacharacters must not raise and must not be interpreted as regex.
+        for pattern in ["*", "?", "[", "]", "(", ")"]:
+            self.assertTrue(apply_literal_search(source, pattern, columns=columns).empty)
+        # "+" is present literally in "A+B Team", so it must match that single row, not be treated as regex.
+        plus_result = apply_literal_search(source, "+", columns=columns)
+        self.assertEqual(plus_result["asset_tag"].tolist(), ["W3"])
+
+    def test_candidate_search_matches_across_multiple_fields(self):
+        source = self.candidates()
+        columns = self.search_columns(source)
+        self.assertEqual(len(apply_literal_search(source, "Branch", columns=columns)), 1)
+        self.assertEqual(len(apply_literal_search(source, "In Use", columns=columns)), 2)
+        self.assertEqual(len(apply_literal_search(source, "Dell Latitude", columns=columns)), 2)
+
+    def test_blank_search_preserves_current_filtered_rows(self):
+        source = self.candidates().iloc[[0, 2]]
+        result = apply_literal_search(source, "", columns=self.search_columns(source))
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result["asset_tag"].tolist(), ["W1", "W3"])
+
+    def test_search_does_not_crash_on_null_values(self):
+        source = self.candidates()
+        result = apply_literal_search(source, "e1", columns=self.search_columns(source))
+        self.assertEqual(result["asset_tag"].tolist(), ["W1"])
+
+    def test_filter_option_values_drop_blanks_but_preserve_not_assigned(self):
+        source = self.candidates()
+        values = _values(source, "department")
+        self.assertIn("Not Assigned", values)
+        self.assertNotIn("", values)
+        self.assertNotIn(None, values)
+
+    def test_segment_filter_and_search_apply_cumulatively(self):
+        source = self.candidates()
+        segmented = source[source["site"].astype(str).eq("HQ")]
+        result = apply_literal_search(segmented, "Dell", columns=self.search_columns(segmented))
+        self.assertEqual(result["asset_tag"].tolist(), ["W1", "W3"])
+
+    def test_planning_rank_and_age_sort_is_unchanged(self):
+        source = self.candidates()
+        sorted_df = source.sort_values(["ITAM Planning Rank", "Asset Age"], ascending=[True, False])
+        self.assertEqual(sorted_df["asset_tag"].tolist(), ["W4", "W3", "W1", "W2"])
+
+    def test_meaningful_optional_columns_drops_empty_optional_fields(self):
+        smartphone_df = pd.DataFrame({"asset_tag": ["M1"], "imei": ["I1"], "workstation_status": [pd.NA]})
+        visible = _meaningful_optional_columns(
+            smartphone_df, ["asset_tag", "workstation_status", "imei"], CANDIDATE_DETAIL_OPTIONAL_COLUMNS,
+        )
+        self.assertEqual(visible, ["asset_tag", "imei"])
+
+        workstation_df = pd.DataFrame({"asset_tag": ["W1"], "imei": [pd.NA], "workstation_status": ["In Use"]})
+        visible = _meaningful_optional_columns(
+            workstation_df, ["asset_tag", "workstation_status", "imei"], CANDIDATE_DETAIL_OPTIONAL_COLUMNS,
+        )
+        self.assertEqual(visible, ["asset_tag", "workstation_status"])
+
+    def test_candidate_detail_columns_lead_with_planning_priority(self):
+        self.assertEqual(CANDIDATE_DETAIL_COLUMNS[0], "ITAM Planning Priority")
+        self.assertNotIn("ITAM Planning Rank", CANDIDATE_DETAIL_COLUMNS)
+        self.assertNotIn("ITAM Finding Count", CANDIDATE_DETAIL_COLUMNS)
+
+    def test_clear_replacement_planning_filters_resets_widget_defaults(self):
+        import streamlit as st
+
+        st.session_state["replacement-segment"] = "Priority Review"
+        st.session_state["replacement-search"] = "abc"
+        for column in PLANNING_FILTER_RESET_COLUMNS:
+            st.session_state[f"replacement-{column}"] = ["some-value"]
+
+        _clear_replacement_planning_filters()
+
+        self.assertEqual(st.session_state["replacement-segment"], "All Replacement Candidates")
+        self.assertEqual(st.session_state["replacement-search"], "")
+        for column in PLANNING_FILTER_RESET_COLUMNS:
+            self.assertEqual(st.session_state[f"replacement-{column}"], [])
+
+
+class ExportAuditNoteTests(unittest.TestCase):
     def test_export_audit_notes_are_cleaned_without_mutating_source(self):
         source = pd.DataFrame({
             "ITAM Audit Findings": ["[Medium] ITAM lifecycle is Expired but source State is In Use"],

@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from itam.data import apply_literal_search
 from itam.export import export_to_excel
 
 
@@ -35,6 +36,8 @@ DISPLAY_LABELS = {
     "ITAM Audit Findings": "Audit Notes",
     "ITAM State Review Required": "State Review",
     "ITAM Replacement Candidate": "Replacement Candidate",
+    "ITAM Planning Priority": "Planning Priority",
+    "ITAM Planning Rank": "Planning Rank",
     "ITAM Duplicate Asset Tag": "Duplicate Asset Tag",
     "ITAM Duplicate Serial": "Duplicate Serial",
     "ITAM Duplicate IMEI": "Duplicate IMEI",
@@ -53,17 +56,32 @@ EXPORT_PRESETS = {
         "Warranty Status", "ITAM Finding Count", "ITAM Highest Severity",
         "ITAM Review Required", "ITAM Audit Findings",
     ],
-    "Replacement Planning": [
-        "asset_type", "asset_tag", "serial_number", "model", "site", "department",
-        "purchase_year", "Asset Age", "state", "workstation_status", "programme",
-        "ITAM Lifecycle Status", "ITAM Replacement Candidate",
-    ],
+    "Replacement Planning": None,  # populated below from CANDIDATE_DETAIL_COLUMNS
     "Full Dataset": None,
 }
 
 SEARCH_COLUMNS = [
     "asset_tag", "serial_number", "model", "user", "employee_id", "email",
     "location", "site", "imei", "sim_number", "programme", "place",
+]
+
+# Default Candidate Detail table columns; also drives the Replacement Planning export preset.
+CANDIDATE_DETAIL_COLUMNS = [
+    "ITAM Planning Priority", "asset_type", "asset_tag", "serial_number", "model",
+    "state", "workstation_status", "user", "department", "site", "location",
+    "purchase_year", "Asset Age", "Warranty Status", "programme",
+    "ITAM Lifecycle Status", "ITAM Review Required", "imei",
+]
+CANDIDATE_DETAIL_OPTIONAL_COLUMNS = {"workstation_status", "imei"}
+EXPORT_PRESETS["Replacement Planning"] = CANDIDATE_DETAIL_COLUMNS
+
+PLANNING_SEARCH_COLUMNS = [
+    "asset_tag", "serial_number", "model", "user", "employee_id", "site",
+    "location", "programme", "workstation_status", "imei",
+]
+
+PLANNING_FILTER_RESET_COLUMNS = [
+    "model", "site", "department", "state", "workstation_status", "programme", "purchase_year",
 ]
 
 
@@ -85,15 +103,19 @@ def _values(df, column):
 
 def _metric_row(metrics):
     columns = st.columns(len(metrics))
-    for column, (label, value) in zip(columns, metrics):
+    for column, metric in zip(columns, metrics):
+        label, value = metric[0], metric[1]
         with column:
-            normalized_label = label.casefold()
-            accent = (
-                "danger" if any(term in normalized_label for term in ["expired", "high severity"])
-                else "warning" if any(term in normalized_label for term in ["review", "aging"])
-                else "success" if any(term in normalized_label for term in ["within", "active", "new"])
-                else "info"
-            )
+            if len(metric) > 2:
+                accent = metric[2]
+            else:
+                normalized_label = label.casefold()
+                accent = (
+                    "danger" if any(term in normalized_label for term in ["expired", "high severity"])
+                    else "warning" if any(term in normalized_label for term in ["review", "aging"])
+                    else "success" if any(term in normalized_label for term in ["within", "active", "new"])
+                    else "info"
+                )
             st.markdown(
                 f'<div class="al-kpi al-kpi-{accent}">'
                 f'<div class="al-kpi-label">{label}</div>'
@@ -109,6 +131,14 @@ def _filtered_by_selections(df, selections):
         if selected and column in filtered.columns:
             filtered = filtered[filtered[column].astype(str).isin(selected)]
     return filtered
+
+
+def _meaningful_optional_columns(df, columns, optional_columns):
+    """Drop optional columns that have no data at all, so e.g. IMEI never appears empty for Workstation."""
+    return [
+        column for column in columns
+        if column not in optional_columns or (column in df.columns and df[column].notna().any())
+    ]
 
 
 def make_display_dataframe(df, columns=None):
@@ -393,36 +423,227 @@ def render_data_audit(df, asset_type):
         )
 
 
+def _planning_priority_chart(candidates):
+    order = ["Priority Review", "Standard Planning", "Low Operational Priority"]
+    counts = candidates["ITAM Planning Priority"].value_counts().reindex(order, fill_value=0)
+    total = int(counts.sum())
+    if total == 0:
+        st.info("There are no Replacement Candidates to segment yet.")
+        return
+    percentages = (counts / total * 100).round(1)
+    figure = px.bar(
+        x=counts.values, y=order, orientation="h",
+        text=[f"{count:,} ({pct:.1f}%)" for count, pct in zip(counts.values, percentages.values)],
+        labels={"x": "Replacement Candidates", "y": ""},
+    )
+    figure.update_traces(textposition="outside")
+    figure.update_layout(height=300, margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis=dict(categoryorder="array", categoryarray=order[::-1]))
+    st.plotly_chart(figure, use_container_width=True, key="replacement-planning-priority")
+
+
+def _candidate_age_chart(candidates, key="replacement-candidate-age-profile", title=None):
+    age_labels = ["Age 6", "Age 7", "Age 8", "Age 9", "Age 10", "Age 11+"]
+
+    def bucket(age):
+        if pd.isna(age):
+            return None
+        age = int(age)
+        return "Age 11+" if age >= 11 else f"Age {age}"
+
+    buckets = candidates["Asset Age"].map(bucket)
+    counts = buckets.value_counts().reindex(age_labels, fill_value=0)
+    if int(counts.sum()) == 0:
+        st.info("There are no Replacement Candidates to profile yet.")
+        return
+    figure = px.bar(
+        x=age_labels, y=counts.values, title=title,
+        labels={"x": "Asset Age", "y": "Replacement Candidates"},
+        category_orders={"x": age_labels},
+    )
+    figure.update_layout(height=320, margin=dict(t=35 if title else 20, b=20, l=10, r=10), showlegend=False)
+    st.plotly_chart(figure, use_container_width=True, key=key)
+
+
+def _top_n_counts(series, top_n=10):
+    """Blank-filtered, descending value counts for a categorical breakdown (top N)."""
+    if series is None:
+        return pd.Series(dtype="int64")
+    cleaned = series.dropna().astype(str).str.strip()
+    cleaned = cleaned[cleaned.ne("") & cleaned.str.casefold().ne("na")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+    return cleaned.value_counts().head(top_n)
+
+
+def _chronological_counts(series):
+    """Blank-filtered value counts ordered chronologically (ascending) for numeric-like values."""
+    if series is None:
+        return pd.Series(dtype="int64")
+    cleaned = series.dropna().astype(str).str.strip()
+    cleaned = cleaned[cleaned.ne("") & cleaned.str.casefold().ne("na")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+    counts = cleaned.value_counts()
+    try:
+        order = sorted(counts.index, key=float)
+    except ValueError:
+        order = sorted(counts.index)
+    return counts.reindex(order)
+
+
+def _truncate_label(value, max_length=32):
+    """Shorten a chart label so long names cannot break the layout."""
+    text = str(value)
+    return text if len(text) <= max_length else text[: max_length - 1].rstrip() + "…"
+
+
+def _breakdown_bar_chart(df, column, title, key, top_n=10):
+    """Render a compact top-N descending breakdown; returns False when there is no meaningful data."""
+    if column not in df.columns:
+        return False
+    counts = _top_n_counts(df[column], top_n)
+    if counts.empty:
+        return False
+    display_counts = counts.sort_values()
+    labels = [_truncate_label(label) for label in display_counts.index]
+    figure = px.bar(
+        x=display_counts.values, y=labels, orientation="h", title=title,
+        labels={"x": "Replacement Candidates", "y": ""},
+    )
+    figure.update_layout(height=340, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
+    st.plotly_chart(figure, use_container_width=True, key=key)
+    return True
+
+
+def _chronological_bar_chart(df, column, title, key):
+    """Render a candidate breakdown in chronological order; returns False when there is no meaningful data."""
+    if column not in df.columns:
+        return False
+    counts = _chronological_counts(df[column])
+    if counts.empty:
+        return False
+    labels = list(counts.index)
+    figure = px.bar(
+        x=labels, y=counts.values, title=title,
+        labels={"x": title, "y": "Replacement Candidates"},
+        category_orders={"x": labels},
+    )
+    figure.update_layout(height=320, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
+    st.plotly_chart(figure, use_container_width=True, key=key)
+    return True
+
+
+def _clear_replacement_planning_filters():
+    """Reset Replacement Planning widget state; must run as a button on_click callback.
+
+    Streamlit callbacks execute before the widgets are re-instantiated on the
+    next run, so it is safe to write these widget-backed keys here even though
+    it would raise StreamlitWidgetAlreadyInstantiatedError if done inline
+    after the widgets have already rendered in the current run.
+    """
+    st.session_state["replacement-segment"] = "All Replacement Candidates"
+    for column in PLANNING_FILTER_RESET_COLUMNS:
+        st.session_state[f"replacement-{column}"] = []
+    st.session_state["replacement-search"] = ""
+
+
 def render_replacement_planning(df, asset_type):
     st.title("Replacement Planning")
     st.caption("Use age-based expired assets to support future replacement programme planning.")
     candidates = df[df["ITAM Replacement Candidate"].eq(True)].copy()
     total = len(df)
-    average_age = candidates["Asset Age"].dropna().mean()
-    oldest_age = candidates["Asset Age"].dropna().max()
+    candidate_count = len(candidates)
+    priority_counts = candidates["ITAM Planning Priority"].value_counts()
+
+    st.subheader("Planning Summary")
     _metric_row([
-        ("Replacement Candidates", len(candidates)),
-        ("Percentage of Population", f"{len(candidates) / total * 100:.1f}%" if total else "0.0%"),
-        ("Average Candidate Age", f"{average_age:.1f} years" if pd.notna(average_age) else "Unknown"),
-        ("Oldest Candidate Age", f"{int(oldest_age)} years" if pd.notna(oldest_age) else "Unknown"),
+        ("Replacement Candidates", candidate_count, "navy"),
+        ("Priority Review", int(priority_counts.get("Priority Review", 0)), "warning"),
+        ("Standard Planning", int(priority_counts.get("Standard Planning", 0)), "teal"),
+        ("Low Operational Priority", int(priority_counts.get("Low Operational Priority", 0)), "muted"),
+        ("Candidate Rate", f"{candidate_count / total * 100:.1f}%" if total else "0.0%", "info"),
     ])
+
+    st.subheader("Planning Priority")
+    _planning_priority_chart(candidates)
+
+    st.subheader("Candidate Age Profile")
+    _candidate_age_chart(candidates)
+
+    st.subheader("Planning Filters")
+    segment_options = ["All Replacement Candidates", "Priority Review", "Standard Planning", "Low Operational Priority"]
+    search_query = st.text_input(
+        "Search candidates",
+        placeholder="Asset Tag, Serial Number, Model, User, Site, IMEI...",
+        key="replacement-search",
+    )
     with st.expander("Planning filters", expanded=False):
+        segment_col, clear_col = st.columns([4, 1])
+        with segment_col:
+            segment = st.selectbox("Planning Priority Segment", segment_options, key="replacement-segment")
+        with clear_col:
+            st.write("")
+            st.button(
+                "Clear planning filters", key="replacement-clear-filters",
+                use_container_width=True, on_click=_clear_replacement_planning_filters,
+            )
         selections = {}
         columns = st.columns(3)
-        for index, (column, label) in enumerate([( "model", "Model / Product"), ("site", "Site"), ("state", "Source State"), ("purchase_year", "Year Of Purchase"), ("programme", "Programme"), ("workstation_status", "Workstation Status")]):
+        filter_fields = [
+            ("model", "Model / Product"), ("site", "Site"), ("department", "Department"),
+            ("state", "Source State"), ("workstation_status", "Workstation Status"),
+            ("programme", "Programme"), ("purchase_year", "Year Of Purchase"),
+        ]
+        for index, (column, label) in enumerate(filter_fields):
             if column in candidates.columns:
                 with columns[index % 3]:
                     selections[column] = st.multiselect(label, _values(candidates, column), key=f"replacement-{column}")
-    candidates = _filtered_by_selections(candidates, selections if "selections" in locals() else {})
-    chart_left, chart_right = st.columns(2)
-    with chart_left:
-        _bar_chart(candidates, "model", "Candidate Models", "replacement-models")
-    with chart_right:
-        _bar_chart(candidates, "site", "Candidate Sites", "replacement-sites")
-    st.dataframe(_display_frame(candidates, ["asset_type", "asset_tag", "serial_number", "model", "site", "department", "purchase_year", "Asset Age", "state", "workstation_status", "programme", "ITAM Lifecycle Status"]), use_container_width=True, height=520, hide_index=True)
+
+    segmented = candidates if segment == "All Replacement Candidates" else candidates[candidates["ITAM Planning Priority"].eq(segment)]
+    segmented = _filtered_by_selections(segmented, selections)
+    if search_query:
+        search_columns = [column for column in PLANNING_SEARCH_COLUMNS if column in segmented.columns]
+        segmented = apply_literal_search(segmented, search_query, columns=search_columns or None)
+    if "ITAM Planning Rank" in segmented.columns:
+        segmented = segmented.sort_values(["ITAM Planning Rank", "Asset Age"], ascending=[True, False])
+
+    st.subheader("Operational Distribution")
+    operational_left, operational_right = st.columns(2)
+    with operational_left:
+        _breakdown_bar_chart(segmented, "state", "Source State", "replacement-breakdown-source-state")
+    with operational_right:
+        _breakdown_bar_chart(segmented, "workstation_status", "Workstation Status", "replacement-breakdown-workstation-status")
+
+    st.subheader("Organizational Distribution")
+    org_left, org_right = st.columns(2)
+    with org_left:
+        _breakdown_bar_chart(segmented, "site", "Site", "replacement-breakdown-site")
+    with org_right:
+        _breakdown_bar_chart(segmented, "department", "Department", "replacement-breakdown-department")
+    _breakdown_bar_chart(segmented, "programme", "Programme", "replacement-breakdown-programme")
+
+    st.subheader("Asset Profile")
+    asset_left, asset_right = st.columns(2)
+    with asset_left:
+        _breakdown_bar_chart(segmented, "model", "Model / Product", "replacement-breakdown-model")
+    with asset_right:
+        _chronological_bar_chart(segmented, "purchase_year", "Year Of Purchase", "replacement-breakdown-purchase-year")
+    if segment != "All Replacement Candidates":
+        _candidate_age_chart(segmented, key="replacement-breakdown-asset-age", title=f"Asset Age — {segment}")
+
+    st.subheader("Candidate Detail")
+    summary_caption = f"Showing {len(segmented):,} of {candidate_count:,} replacement candidates"
+    if segment != "All Replacement Candidates":
+        summary_caption += f" — segment: {segment}"
+    st.caption(summary_caption)
+    if segmented.empty:
+        st.info("No replacement candidates match the current filters.")
+    else:
+        detail_columns = _meaningful_optional_columns(df, CANDIDATE_DETAIL_COLUMNS, CANDIDATE_DETAIL_OPTIONAL_COLUMNS)
+        st.dataframe(_display_frame(segmented, detail_columns), use_container_width=True, height=520, hide_index=True)
     with st.expander("Export Data", expanded=False):
         render_export_panel(
-            candidates, "Current Replacement Candidates",
+            segmented, "Current Replacement Candidates",
             f"assetlens_replacement_candidates_{pd.Timestamp.now():%Y-%m-%d}.xlsx", "export-replacement",
         )
 
