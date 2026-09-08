@@ -25,12 +25,13 @@ from itam.data import (
     validate_source_columns as modular_validate_source_columns,
 )
 from itam.export import export_to_excel as modular_export_to_excel
+from itam.ui import render_navigation
 
 # ============================================================================
 # PAGE CONFIGURATION
 # ============================================================================
 st.set_page_config(
-    page_title="Asset Management Dashboard System",
+    page_title="AssetLens",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -47,22 +48,54 @@ def inject_professional_css():
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
         :root {
-            --primary-blue: #0066B3;
-            --secondary-blue: #0080C9;
-            --light-blue: #E6F3FF;
-            --accent-blue: #00A3E0;
-            --text-primary: #2C3E50;
-            --text-secondary: #7B8794;
-            --background: #F5F7FA;
-            --border: #E0E6ED;
-            --success: #28A745;
-            --warning: #FFC107;
-            --danger: #DC3545;
+            --al-navy: #0F2744;
+            --al-blue: #176B87;
+            --al-teal: #1F8A8A;
+            --al-bg: #F4F7FA;
+            --al-surface: #FFFFFF;
+            --al-border: #D9E2EC;
+            --al-text: #172B4D;
+            --al-muted: #6B7C93;
+            --al-success: #2E7D5B;
+            --al-warning: #B7791F;
+            --al-danger: #B84242;
+            --al-info: #176B87;
+            --primary-blue: var(--al-navy);
+            --secondary-blue: var(--al-blue);
+            --light-blue: #E7F0F5;
+            --text-primary: var(--al-text);
+            --text-secondary: var(--al-muted);
+            --background: var(--al-bg);
+            --border: var(--al-border);
         }
 
-        .main {
-            background: var(--background);
+        [data-testid="stAppViewContainer"] {
+            background: var(--al-bg);
+        }
+
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+
+        [data-testid="stMainBlockContainer"] {
+            max-width: 1440px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
             font-family: 'Poppins', sans-serif;
+            color: var(--al-text);
+        }
+
+        section[data-testid="stMain"] p,
+        section[data-testid="stMain"] label,
+        section[data-testid="stMain"] h1,
+        section[data-testid="stMain"] h2,
+        section[data-testid="stMain"] h3,
+        section[data-testid="stMain"] [data-testid="stCaptionContainer"] {
+            color: var(--al-text) !important;
+        }
+
+        section[data-testid="stMain"] [data-testid="stCaptionContainer"] {
+            color: var(--al-muted) !important;
         }
 
         h1 {
@@ -79,30 +112,176 @@ def inject_professional_css():
         }
 
         [data-testid="stSidebar"] {
-            background: #FFFFFF;
-            border-right: 1px solid var(--border);
+            background: var(--al-navy);
+            border-right: 1px solid #0A1D33;
         }
 
-        [data-testid="stSidebar"] * {
-            color: var(--text-primary) !important;
+        /* Keep dark-sidebar text and light interactive controls separate. */
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+            color: #F4F7FA !important;
+        }
+
+        [data-testid="stSidebar"] details {
+            background: transparent !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+        }
+
+        [data-testid="stSidebar"] details > summary,
+        [data-testid="stSidebar"] details[open] > summary,
+        [data-testid="stSidebar"] details > summary:hover,
+        [data-testid="stSidebar"] details > summary:focus-visible {
+            background: #18395C !important;
+            color: #F4F7FA !important;
+            border-radius: 5px !important;
+        }
+
+        [data-testid="stSidebar"] details > summary *,
+        [data-testid="stSidebar"] details[open] > summary * {
+            color: #F4F7FA !important;
+            fill: #F4F7FA !important;
+        }
+
+        [data-testid="stSidebar"] details > [data-testid="stExpanderDetails"] {
+            background: var(--al-navy) !important;
+            color: #F4F7FA !important;
+        }
+
+        [data-testid="stSidebar"] details > [data-testid="stExpanderDetails"] * {
+            color: #F4F7FA !important;
+        }
+
+        [data-testid="stSidebar"] [data-baseweb="select"] > div {
+            background: var(--al-surface) !important;
+            border: 1px solid var(--al-border) !important;
+            border-radius: 6px !important;
+        }
+
+        [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"],
+        [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] span,
+        [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] input {
+            color: var(--al-text) !important;
+        }
+
+        [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] svg,
+        [data-testid="stSidebar"] [data-baseweb="select"] svg {
+            fill: var(--al-text) !important;
+            color: var(--al-text) !important;
+        }
+
+        [data-testid="stSidebar"] [data-baseweb="select"] [aria-disabled="true"],
+        [data-testid="stSidebar"] [data-baseweb="select"] [aria-disabled="true"] span {
+            background: #EEF2F5 !important;
+            color: #5B6B7C !important;
+            opacity: 1 !important;
+        }
+
+        [data-testid="stSidebar"] [role="combobox"] {
+            background: var(--al-surface) !important;
+            border: 1px solid var(--al-border) !important;
+            border-radius: 6px !important;
+            color: var(--al-text) !important;
+            -webkit-text-fill-color: var(--al-text) !important;
+        }
+
+        [data-testid="stSidebar"] [role="combobox"]::placeholder {
+            color: var(--al-muted) !important;
+            -webkit-text-fill-color: var(--al-muted) !important;
+        }
+
+        [data-testid="stSidebar"] [role="combobox"]:disabled {
+            background: #EEF2F5 !important;
+            color: #5B6B7C !important;
+            -webkit-text-fill-color: #5B6B7C !important;
+            opacity: 1 !important;
+        }
+
+        [data-testid="stSidebar"] [role="combobox"] + button,
+        [data-testid="stSidebar"] [role="combobox"] ~ button {
+            background: var(--al-surface) !important;
+            color: var(--al-text) !important;
+            border: 1px solid var(--al-border) !important;
+            border-left: 0 !important;
+        }
+
+        [data-testid="stSidebar"] [role="combobox"] + button svg,
+        [data-testid="stSidebar"] [role="combobox"] ~ button svg {
+            color: var(--al-text) !important;
+            fill: var(--al-text) !important;
+        }
+
+        [role="listbox"][aria-label="Navigation Open"],
+        [role="listbox"][aria-label="Select Sheet Open"] {
+            background: var(--al-surface) !important;
+            border: 1px solid var(--al-border) !important;
+        }
+
+        [role="listbox"][aria-label="Navigation Open"] [role="option"],
+        [role="listbox"][aria-label="Select Sheet Open"] [role="option"] {
+            background: var(--al-surface) !important;
+            color: var(--al-text) !important;
+        }
+
+        [role="listbox"][aria-label="Navigation Open"] [role="option"]:hover,
+        [role="listbox"][aria-label="Select Sheet Open"] [role="option"]:hover,
+        [role="listbox"][aria-label="Navigation Open"] [aria-selected="true"],
+        [role="listbox"][aria-label="Select Sheet Open"] [aria-selected="true"] {
+            background: var(--light-blue) !important;
+            color: var(--al-text) !important;
+        }
+
+        .al-brand {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .al-brand-name { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.02em; }
+        .al-brand-subtitle { color: #AFC4D6; font-size: 0.78rem; margin-top: 0.2rem; }
+
+        .al-kpi {
+            background: var(--al-surface);
+            border: 1px solid var(--al-border);
+            border-top: 4px solid var(--al-info);
+            border-radius: 8px;
+            box-shadow: 0 3px 12px rgba(15, 39, 68, 0.08);
+            min-height: 96px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .al-kpi-success { border-top-color: var(--al-success); }
+        .al-kpi-warning { border-top-color: var(--al-warning); }
+        .al-kpi-danger { border-top-color: var(--al-danger); }
+        .al-kpi-label { color: var(--al-muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+        .al-kpi-value { color: var(--al-text); font-size: 1.8rem; font-weight: 700; line-height: 1.25; margin-top: 0.5rem; }
+
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3,
+        .stSubheader {
+            border-bottom: 1px solid var(--al-border);
+            padding-bottom: 0.45rem;
+            margin-top: 1.8rem;
         }
 
         .metric-card {
-            background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
-            border-radius: 12px;
+            background: #FFFFFF;
+            border-radius: 8px;
             padding: 24px;
             color: #1A4D7A;
             text-align: center;
             font-weight: 500;
             margin-bottom: 16px;
-            box-shadow: 0 2px 12px rgba(0, 102, 179, 0.1);
-            transition: all 0.3s ease;
-            border: none;
+            box-shadow: 0 2px 8px rgba(23, 50, 77, 0.08);
+            transition: box-shadow 0.2s ease;
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--secondary-blue);
         }
 
         .metric-card:hover {
-            box-shadow: 0 4px 20px rgba(0, 102, 179, 0.18);
-            transform: translateY(-3px);
+            box-shadow: 0 4px 14px rgba(23, 50, 77, 0.14);
         }
 
         .metric-card h2 {
@@ -206,24 +385,24 @@ def inject_professional_css():
         .stDataFrame {
             border-radius: 8px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 102, 179, 0.06);
+            box-shadow: 0 2px 8px rgba(15, 39, 68, 0.06);
             border: 1px solid var(--border);
         }
 
-        .stButton>button {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+        .stButton>button, [data-testid="stDownloadButton"] button {
+            background: var(--al-blue);
             color: white;
             border: none;
             border-radius: 6px;
             padding: 10px 20px;
             font-weight: 500;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 6px rgba(0, 102, 179, 0.2);
+            box-shadow: 0 2px 6px rgba(15, 39, 68, 0.2);
         }
 
-        .stButton>button:hover {
-            box-shadow: 0 4px 12px rgba(0, 102, 179, 0.3);
-            transform: translateY(-1px);
+        .stButton>button:hover, [data-testid="stDownloadButton"] button:hover {
+            background: var(--al-teal);
+            box-shadow: 0 4px 12px rgba(15, 39, 68, 0.3);
         }
 
         @media (max-width: 768px) {
@@ -1136,7 +1315,7 @@ def create_sample_mobile_file():
     return output
 
 # ============================================================================
-if __name__ == '__main__':
+if False and __name__ == '__main__':
     # MAIN APPLICATION
     # ============================================================================
 
@@ -1337,7 +1516,7 @@ if __name__ == '__main__':
             audit_review_count = int(df["ITAM Review Required"].sum())
             audit_high_count = int(df["ITAM Highest Severity"].eq("High").sum())
             replacement_candidate_count = int(df["ITAM Replacement Candidate"].sum())
-            st.markdown('<div class="section-header">ITAM Audit Summary</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">Audit Summary</div>', unsafe_allow_html=True)
             audit_col1, audit_col2, audit_col3 = st.columns(3)
             audit_metrics = [
                 (audit_col1, "ASSETS REQUIRING REVIEW", audit_review_count, "card-warning"),
@@ -1435,7 +1614,7 @@ if __name__ == '__main__':
             st.sidebar.markdown("---")
             st.sidebar.markdown("""
                 <div style='text-align: center; color: #7B8794; font-size: 0.85em;'>
-                    <strong>Asset Management Dashboard System</strong><br/>
+                    <strong>AssetLens</strong><br/>
                     Version 2.4.0<br/>
                     <br/>
                     &copy; 2025 All rights reserved.<br/>
@@ -1590,54 +1769,88 @@ if __name__ == '__main__':
             - Data stays completely private
             """)
 
+
+if __name__ == '__main__':
+    inject_professional_css()
+    st.title("AssetLens")
+    st.caption("IT Asset Audit & Lifecycle Intelligence")
+    st.caption("Audit, analyze and plan from official IT asset inventory exports.")
+
+    with st.sidebar:
+        st.markdown(
+            '<div class="al-brand"><div class="al-brand-name">AssetLens</div>'
+            '<div class="al-brand-subtitle">Asset Intelligence</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("**Dataset**")
+
+    uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
+    if uploaded_file is None:
+        st.info("Upload an Excel export to get started.")
+        st.markdown("The dashboard keeps source values intact while adding lifecycle, warranty and audit analysis in memory.")
+        with st.expander("Help & Support", expanded=False):
+            st.markdown("**Troubleshooting**\n\nUse an unrestricted `.xlsx` export with a recognizable asset header row. The required identity columns vary by asset type.")
+            st.markdown("**Contact Support**\n\nEmail: khalis.abdrahim@gmail.com")
+        st.sidebar.caption("Version 2.5.0")
+        st.stop()
+
+    try:
+        uploaded_file.seek(0)
+        file_bytes = uploaded_file.read()
+        if not file_bytes.startswith(b'PK'):
+            st.error("The uploaded file is not a valid Excel (.xlsx) file.")
+            st.stop()
+
+        uploaded_file.seek(0)
+        workbook = pd.ExcelFile(uploaded_file, engine='openpyxl')
+        selected_sheet = st.sidebar.selectbox("Select Sheet", workbook.sheet_names)
+        uploaded_file.seek(0)
+        detected_header = detect_header_row(uploaded_file, selected_sheet)
+        use_manual_header = st.sidebar.checkbox("Manual Header Row Selection", value=False)
+        if use_manual_header:
+            header_row = st.sidebar.number_input(
+                "Header Row (0-based)", min_value=0, max_value=20,
+                value=detected_header if detected_header is not None else 0,
+            )
+        elif detected_header is None:
+            st.warning("Automatic header detection could not find a confident export header. Enable manual header selection.")
+            st.stop()
         else:
-            st.info("Sila muat naik fail Excel anda untuk bermula.")
+            header_row = detected_header
 
-            st.markdown("### Cara Guna Dashboard Ini")
-            st.markdown("""
-            Dashboard ini membaca nama asal kolum terus dari fail Excel anda.
+        uploaded_file.seek(0)
+        source_df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
+        source_df.columns = [str(column).strip() for column in source_df.columns]
+        source_df = source_df.loc[:, ~source_df.columns.duplicated(keep='first')]
+        asset_type = detect_asset_type_from_data(source_df)
+        if asset_type == "Unknown":
+            st.error("Could not confidently detect this export. Expected Workstation Type or IT Smartphones / IT Tablets.")
+            st.stop()
 
-            #### Ciri-ciri Utama
-            - Auto-detect jenis aset
-            - Semua kolum asal dipaparkan
-            - Pecahan mengikut Rantau
-            - UI bersih dan profesional
-            - Penapisan pintar
+        missing_required = validate_source_columns(source_df, asset_type)
+        if missing_required:
+            st.error(f"This {asset_type.lower()} export is missing required columns: {', '.join(missing_required)}")
+            st.stop()
 
-            #### Kolum yang Diperlukan
+        # Process once; all five pages consume this same audited DataFrame.
+        processed_df = build_canonical_dataframe(source_df, asset_type)
+        processed_df = calculate_asset_age(processed_df)
+        processed_df, _ = get_warranty_status(processed_df)
+        processed_df = run_itam_audit(processed_df)
 
-            **Aset Workstation:**
-            - `Model` (Wajib)
-            - `Workstation Type`, `Warranty Expiry`, `Place` (Opsyenal)
+        st.sidebar.success(f"Detected: {asset_type} assets")
+        with st.sidebar.expander("Dataset details", expanded=False):
+            st.write(f"**Rows:** {len(processed_df):,}")
+            st.write(f"**Columns found:** {len(source_df.columns):,}")
+            st.write(f"**Header row:** {header_row}")
+            st.write("**Analysis fields:** Asset Type, Model / Product, Source State, Lifecycle, Warranty Status")
+        with st.sidebar.expander("Help & Support", expanded=False):
+            st.markdown("**Troubleshooting**\n\nCheck the selected sheet and header row if the export is not detected.")
+            st.markdown("**Contact Support**\n\nEmail: khalis.abdrahim@gmail.com")
+        st.sidebar.caption("Version 2.5.0")
 
-            **Aset Mobile:**
-            - `Product` (Wajib)
-            - `Product Type`, `Programme`, `Site` (Opsyenal)
-            """)
-
-            col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
-            with col_sample1:
-                sample_ws = create_sample_workstation_file()
-                st.download_button(
-                    label="Contoh Workstation",
-                    data=sample_ws,
-                    file_name="contoh_workstation.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            with col_sample2:
-                sample_mb = create_sample_mobile_file()
-                st.download_button(
-                    label="Contoh Mobile",
-                    data=sample_mb,
-                    file_name="contoh_mobile.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-
-            st.success("""
-            **Keselamatan Data Anda**
-            - Fail TIDAK disimpan di mana-mana pelayan
-            - Pemprosesan berlaku sepenuhnya dalam memori
-            - Data anda kekal sepenuhnya peribadi
-            """)
+    except Exception as error:
+        st.error(f"Error reading Excel file: {error}")
+        st.info("Check that the file is an unprotected .xlsx export with the correct header row.")
+    else:
+        render_navigation(processed_df, asset_type)

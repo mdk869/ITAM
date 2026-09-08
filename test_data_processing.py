@@ -16,6 +16,7 @@ from itam.data import (
     validate_source_columns,
 )
 from itam.export import export_to_excel
+from itam.ui import DISPLAY_LABELS, format_audit_note, make_display_dataframe, prepare_export_dataframe, resolve_export_columns
 
 
 def excel_with_rows(rows):
@@ -151,6 +152,118 @@ class SearchExportAndEscapingTests(unittest.TestCase):
 
     def test_html_escaping_is_available_as_a_pure_helper(self):
         self.assertNotIn("<script>", escape("<script>alert(1)</script>"))
+
+
+class DisplayColumnTests(unittest.TestCase):
+    def test_audit_note_presentation_removes_internal_wording(self):
+        note = "[Medium] ITAM lifecycle is Expired but source State is In Store"
+
+        formatted = format_audit_note(note)
+
+        self.assertEqual(formatted, "[Medium] Lifecycle is Expired but Source State is In Store")
+        self.assertIn("[Medium]", formatted)
+        self.assertIn("In Store", formatted)
+        self.assertNotIn("ITAM lifecycle", formatted)
+
+    def test_audit_note_presentation_handles_blank_and_null_values(self):
+        self.assertEqual(format_audit_note(""), "")
+        self.assertTrue(pd.isna(format_audit_note(pd.NA)))
+
+    def test_display_labels_do_not_expose_internal_itam_prefix(self):
+        self.assertTrue(all("itam" not in label.casefold() for label in DISPLAY_LABELS.values()))
+        self.assertEqual(DISPLAY_LABELS["ITAM Lifecycle Status"], "Lifecycle")
+        self.assertEqual(DISPLAY_LABELS["ITAM Audit Findings"], "Audit Notes")
+        self.assertEqual(DISPLAY_LABELS["ITAM Duplicate Asset Tag"], "Duplicate Asset Tag")
+
+    def test_workstation_display_labels_are_unique_and_preserve_collisions(self):
+        source = CanonicalSchemaTests().workstation()
+        source["Workstation Status"] = "Raw Status"
+        processed = build_canonical_dataframe(source, "Workstation")
+        original_columns = list(processed.columns)
+
+        display = make_display_dataframe(processed)
+
+        self.assertTrue(display.columns.is_unique)
+        self.assertEqual(display["Workstation Status"].tolist(), ["Raw Status"])
+        self.assertEqual(display["Workstation Status (Canonical)"].tolist(), ["Raw Status"])
+        self.assertEqual(display["Year Of Purchase"].tolist(), [2025])
+        self.assertEqual(display["Year Of Purchase (Canonical)"].tolist(), [2025])
+        self.assertEqual(display["Warranty Expiry"].tolist(), ["2030-01-01"])
+        self.assertEqual(display["Warranty Expiry (Canonical)"].tolist(), ["2030-01-01"])
+        self.assertEqual(list(processed.columns), original_columns)
+
+    def test_mobile_display_labels_are_unique_for_smartphone_and_tablet(self):
+        source = CanonicalSchemaTests().mobile()
+        for asset_type in ["Smartphone", "Tablet"]:
+            processed = build_canonical_dataframe(source, asset_type)
+            display = make_display_dataframe(processed)
+
+            self.assertTrue(display.columns.is_unique)
+            self.assertIn("Serial Number", display.columns)
+            self.assertIn("Serial Number (Canonical)", display.columns)
+            self.assertIn("Year Of Purchase", display.columns)
+            self.assertIn("Year Of Purchase (Canonical)", display.columns)
+            self.assertEqual(display["Serial Number"].tolist(), ["S1"])
+            self.assertEqual(display["Serial Number (Canonical)"].tolist(), ["S1"])
+
+
+class CustomExportTests(unittest.TestCase):
+    def test_standard_preset_resolves_available_fields_in_order(self):
+        source = CanonicalSchemaTests().mobile()
+        processed = build_canonical_dataframe(source, "Smartphone")
+
+        columns = resolve_export_columns(processed, "Standard Asset View")
+
+        self.assertEqual(columns[:5], ["asset_type", "asset_tag", "serial_number", "model", "state"])
+        self.assertNotIn("workstation_status", columns)
+
+    def test_custom_export_preserves_selection_order_and_readable_labels(self):
+        source = CanonicalSchemaTests().workstation()
+        processed = build_canonical_dataframe(source, "Workstation")
+        processed = calculate_asset_age(processed)
+        selected = ["serial_number", "asset_tag", "ITAM Lifecycle Status"]
+
+        exported = prepare_export_dataframe(processed, selected)
+
+        self.assertEqual(list(exported.columns), ["Serial Number", "Asset Tag", "Lifecycle"])
+        self.assertEqual(exported["Serial Number"].tolist(), ["S1"])
+
+    def test_optional_preset_fields_and_empty_selection_are_safe(self):
+        source = CanonicalSchemaTests().mobile()
+        processed = build_canonical_dataframe(source, "Tablet")
+
+        replacement_columns = resolve_export_columns(processed, "Replacement Planning")
+
+        self.assertTrue(replacement_columns)
+        self.assertNotIn("workstation_status", replacement_columns)
+        self.assertEqual(resolve_export_columns(processed, "Custom", []), [])
+        self.assertIsNone(prepare_export_dataframe(processed, []))
+
+    def test_export_preset_headings_are_clean_and_unique(self):
+        source = CanonicalSchemaTests().workstation()
+        processed = build_canonical_dataframe(source, "Workstation")
+        processed = calculate_asset_age(processed)
+        processed["ITAM Review Required"] = False
+        processed["ITAM Highest Severity"] = "None"
+        processed["ITAM Audit Findings"] = ""
+
+        columns = resolve_export_columns(processed, "Audit Findings")
+        exported = prepare_export_dataframe(processed, columns)
+
+        self.assertTrue(exported.columns.is_unique)
+        self.assertTrue(all("itam" not in label.casefold() for label in exported.columns))
+        self.assertIn("Lifecycle", exported.columns)
+        self.assertIn("Audit Notes", exported.columns)
+
+    def test_export_audit_notes_are_cleaned_without_mutating_source(self):
+        source = pd.DataFrame({
+            "ITAM Audit Findings": ["[Medium] ITAM lifecycle is Expired but source State is In Use"],
+        })
+
+        exported = prepare_export_dataframe(source, ["ITAM Audit Findings"])
+
+        self.assertEqual(exported.loc[0, "Audit Notes"], "[Medium] Lifecycle is Expired but Source State is In Use")
+        self.assertEqual(source.loc[0, "ITAM Audit Findings"], "[Medium] ITAM lifecycle is Expired but source State is In Use")
 
 
 if __name__ == "__main__":
