@@ -4,19 +4,18 @@ from io import BytesIO
 
 import pandas as pd
 
-from asset_dashboard import (
+from asset_dashboard import escape
+from itam.audit import calculate_asset_age, get_warranty_status
+from itam.data import (
     CANONICAL_COLUMNS,
     apply_literal_search,
     build_canonical_dataframe,
-    calculate_asset_age,
     detect_asset_type,
     detect_asset_type_from_data,
     detect_header_row,
-    escape,
-    export_to_excel,
-    get_warranty_status,
     validate_source_columns,
 )
+from itam.export import export_to_excel
 
 
 def excel_with_rows(rows):

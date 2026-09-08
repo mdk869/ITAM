@@ -6,6 +6,26 @@ from io import BytesIO
 import plotly.express as px
 import plotly.graph_objects as go
 
+from itam.audit import calculate_asset_age as modular_calculate_asset_age
+from itam.audit import get_warranty_status as modular_get_warranty_status
+from itam.audit import run_itam_audit as modular_run_itam_audit
+from itam.data import (
+    CANONICAL_COLUMNS as MODULAR_CANONICAL_COLUMNS,
+    CANONICAL_REQUIRED_COLUMNS as MODULAR_CANONICAL_REQUIRED_COLUMNS,
+    CANONICAL_SOURCE_MAP as MODULAR_CANONICAL_SOURCE_MAP,
+    apply_literal_search as modular_apply_literal_search,
+    build_canonical_dataframe as modular_build_canonical_dataframe,
+    detect_asset_type as modular_detect_asset_type,
+    detect_asset_type_from_data as modular_detect_asset_type_from_data,
+    detect_header_row as modular_detect_header_row,
+    find_column as modular_find_column,
+    get_model_column as modular_get_model_column,
+    get_type_column as modular_get_type_column,
+    normalize_text as modular_normalize_text,
+    validate_source_columns as modular_validate_source_columns,
+)
+from itam.export import export_to_excel as modular_export_to_excel
+
 # ============================================================================
 # PAGE CONFIGURATION
 # ============================================================================
@@ -578,6 +598,24 @@ def run_itam_audit(df):
     audited_df["ITAM Review Required"] = review_required
     audited_df["ITAM Audit Findings"] = finding_text
     return audited_df
+
+
+normalize_text = modular_normalize_text
+find_column = modular_find_column
+detect_asset_type = modular_detect_asset_type
+detect_asset_type_from_data = modular_detect_asset_type_from_data
+CANONICAL_COLUMNS = MODULAR_CANONICAL_COLUMNS
+CANONICAL_SOURCE_MAP = MODULAR_CANONICAL_SOURCE_MAP
+CANONICAL_REQUIRED_COLUMNS = MODULAR_CANONICAL_REQUIRED_COLUMNS
+validate_source_columns = modular_validate_source_columns
+build_canonical_dataframe = modular_build_canonical_dataframe
+get_model_column = modular_get_model_column
+get_type_column = modular_get_type_column
+apply_literal_search = modular_apply_literal_search
+detect_header_row = modular_detect_header_row
+calculate_asset_age = modular_calculate_asset_age
+get_warranty_status = modular_get_warranty_status
+run_itam_audit = modular_run_itam_audit
 
 # ============================================================================
 # DATA VALIDATION

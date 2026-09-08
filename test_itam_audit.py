@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from asset_dashboard import run_itam_audit
+from itam.audit import run_itam_audit
 
 
 class ItamAuditTests(unittest.TestCase):
