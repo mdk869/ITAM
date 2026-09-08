@@ -100,6 +100,36 @@ class ItamAuditTests(unittest.TestCase):
         self.assertFalse(result["ITAM Review Required"].any())
         self.assertEqual(result.loc[1, "ITAM Highest Severity"], "Info")
 
+    def test_waiting_to_dispose_and_disposed_are_lifecycle_exceptions(self):
+        result = self.audit({
+            "asset_type": ["Workstation", "Workstation"],
+            "asset_tag": ["W1", "W2"], "serial_number": ["S1", "S2"],
+            "model": ["Dell", "Dell"], "purchase_year": [2018, 2018],
+            "state": ["Waiting To Dispose", "Disposed"],
+            "ITAM Lifecycle Status": ["Expired", "Expired"],
+        })
+        self.assertFalse(result["ITAM State Review Required"].any())
+
+    def test_highest_severity_uses_priority_order(self):
+        result = self.audit({
+            "asset_type": ["Workstation"], "asset_tag": ["W1"],
+            "serial_number": ["S1"], "model": ["Dell"],
+            "purchase_year": [2025], "state": ["In Use"],
+            "ITAM Lifecycle Status": ["Expired"],
+            "Warranty Status": ["Expired"],
+        })
+        self.assertEqual(result.loc[0, "ITAM Highest Severity"], "Medium")
+        self.assertEqual(result.loc[0, "ITAM Finding Count"], 2)
+
+    def test_not_assigned_is_not_generic_missing_identity(self):
+        result = self.audit({
+            "asset_type": ["Workstation"], "asset_tag": ["Not Assigned"],
+            "serial_number": ["S1"], "model": ["Dell"],
+            "purchase_year": [2025], "state": ["In Use"],
+            "ITAM Lifecycle Status": ["Active"],
+        })
+        self.assertFalse(result.loc[0, "ITAM Missing Core Identity"])
+
 
 if __name__ == "__main__":
     unittest.main()

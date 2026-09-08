@@ -25,7 +25,7 @@ def inject_professional_css():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-        
+
         :root {
             --primary-blue: #0066B3;
             --secondary-blue: #0080C9;
@@ -39,12 +39,12 @@ def inject_professional_css():
             --warning: #FFC107;
             --danger: #DC3545;
         }
-        
+
         .main {
             background: var(--background);
             font-family: 'Poppins', sans-serif;
         }
-        
+
         h1 {
             font-weight: 600;
             color: var(--primary-blue);
@@ -52,21 +52,21 @@ def inject_professional_css():
             margin-bottom: 0.5rem !important;
             letter-spacing: -0.5px;
         }
-        
+
         h2, h3 {
             color: var(--text-primary);
             font-weight: 600;
         }
-        
+
         [data-testid="stSidebar"] {
             background: #FFFFFF;
             border-right: 1px solid var(--border);
         }
-        
+
         [data-testid="stSidebar"] * {
             color: var(--text-primary) !important;
         }
-        
+
         .metric-card {
             background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
             border-radius: 12px;
@@ -79,19 +79,19 @@ def inject_professional_css():
             transition: all 0.3s ease;
             border: none;
         }
-        
+
         .metric-card:hover {
             box-shadow: 0 4px 20px rgba(0, 102, 179, 0.18);
             transform: translateY(-3px);
         }
-        
+
         .metric-card h2 {
             font-size: 2.4rem;
             margin: 12px 0;
             color: #0066B3 !important;
             font-weight: 700;
         }
-        
+
         .metric-card .metric-label {
             font-size: 0.85rem;
             color: #1A4D7A;
@@ -99,7 +99,7 @@ def inject_professional_css():
             letter-spacing: 0.8px;
             font-weight: 600;
         }
-        
+
         .card-primary { background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%); }
         .card-primary h2 { color: #0066B3 !important; }
         .card-success { background: linear-gradient(135deg, #E8F8F0 0%, #D1F2E0 100%); }
@@ -110,7 +110,7 @@ def inject_professional_css():
         .card-info h2 { color: #007BA7 !important; }
         .card-danger { background: linear-gradient(135deg, #FFE8EB 0%, #FFD6DC 100%); }
         .card-danger h2 { color: #B91C2E !important; }
-        
+
         .type-card {
             background: linear-gradient(135deg, #E8F4FC 0%, #D6EDFA 100%);
             border-radius: 12px;
@@ -126,12 +126,12 @@ def inject_professional_css():
             flex-direction: column;
             justify-content: center;
         }
-        
+
         .type-card:hover {
             box-shadow: 0 4px 20px rgba(0, 102, 179, 0.18);
             transform: translateY(-3px);
         }
-        
+
         .type-card .type-label {
             font-size: 0.9rem;
             margin-bottom: 8px;
@@ -140,13 +140,13 @@ def inject_professional_css():
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .type-card .type-count {
             font-size: 2rem;
             font-weight: 700;
             color: #0066B3;
         }
-        
+
         .section-header {
             background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
             padding: 14px 20px;
@@ -157,7 +157,7 @@ def inject_professional_css():
             margin: 24px 0 16px 0;
             box-shadow: 0 2px 8px rgba(0, 102, 179, 0.2);
         }
-        
+
         .sidebar-section {
             background: var(--light-blue);
             padding: 10px 16px;
@@ -168,7 +168,7 @@ def inject_professional_css():
             margin: 16px 0 12px 0;
             border-left: 3px solid var(--primary-blue);
         }
-        
+
         .severity-badge {
             display: inline-block;
             padding: 4px 12px;
@@ -178,18 +178,18 @@ def inject_professional_css():
             letter-spacing: 0.5px;
             margin-right: 8px;
         }
-        
+
         .severity-high { background: #DC3545; color: white; }
         .severity-medium { background: #FFC107; color: #2C3E50; }
         .severity-low { background: #28A745; color: white; }
-        
+
         .stDataFrame {
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0, 102, 179, 0.06);
             border: 1px solid var(--border);
         }
-        
+
         .stButton>button {
             background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
             color: white;
@@ -200,12 +200,12 @@ def inject_professional_css():
             transition: all 0.3s ease;
             box-shadow: 0 2px 6px rgba(0, 102, 179, 0.2);
         }
-        
+
         .stButton>button:hover {
             box-shadow: 0 4px 12px rgba(0, 102, 179, 0.3);
             transform: translateY(-1px);
         }
-        
+
         @media (max-width: 768px) {
             h1 { font-size: 1.6rem !important; }
             .metric-card h2 { font-size: 1.8rem; }
@@ -226,9 +226,9 @@ def find_column(df, search_terms):
     """Find column by multiple search terms"""
     if isinstance(search_terms, str):
         search_terms = [search_terms]
-    
+
     normalized_cols = {normalize_text(col): col for col in df.columns}
-    
+
     for term in search_terms:
         normalized_term = normalize_text(term)
         for norm_col, orig_col in normalized_cols.items():
@@ -350,6 +350,19 @@ def get_type_column(df, asset_type):
     """Get type column based on asset type"""
     return "source_asset_subtype" if "source_asset_subtype" in df.columns else None
 
+def apply_literal_search(df, query, columns=None):
+    """Filter rows using a case-insensitive literal search."""
+    if not query:
+        return df.copy()
+    search_df = df if columns is None else df.loc[:, columns]
+    matches = search_df.apply(
+        lambda row: row.astype(str).str.contains(
+            query, case=False, regex=False, na=False
+        ).any(),
+        axis=1,
+    )
+    return df.loc[matches].copy()
+
 def detect_header_row(excel_file, sheet_name):
     """Find a confident company-export header row in the first 20 rows."""
     try:
@@ -422,12 +435,12 @@ def get_warranty_status(df):
     df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
     today = pd.Timestamp.now().normalize()
     df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
-    
+
     df_temp["Warranty Status"] = "Unknown"
     df_temp.loc[df_temp["Days to Expiry"] < 0, "Warranty Status"] = "Expired"
     df_temp.loc[df_temp["Days to Expiry"].between(0, 90), "Warranty Status"] = "Expiring Soon"
     df_temp.loc[df_temp["Days to Expiry"] > 90, "Warranty Status"] = "Active"
-    
+
     expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
     return df_temp, expired_warranty_df
 
@@ -652,9 +665,9 @@ def show_validation_issues(issues):
     for issue in issues:
         severity_class = f"severity-{issue['severity']}"
         severity_label = issue['severity'].upper()
-        
+
         with st.expander(f"{issue['type']} ({issue['count']})", expanded=False):
-            st.markdown(f'<span class="severity-badge {severity_class}">{severity_label}</span> {issue["details"]}', 
+            st.markdown(f'<span class="severity-badge {severity_class}">{severity_label}</span> {issue["details"]}',
                        unsafe_allow_html=True)
             if "data" in issue and not issue["data"].empty:
                 st.dataframe(issue["data"], use_container_width=True, hide_index=True)
@@ -742,8 +755,8 @@ def show_warranty_summary(df, model_col):
     location_col = find_column(df, ["location"])
     warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
 
-    for status, label in [("Expired", "Expired Warranty Assets"), 
-                          ("Expiring Soon", "Expiring Soon Assets"), 
+    for status, label in [("Expired", "Expired Warranty Assets"),
+                          ("Expiring Soon", "Expiring Soon Assets"),
                           ("Active", "Active Warranty Assets")]:
         status_df = df[df["Warranty Status"] == status]
         if not status_df.empty:
@@ -800,29 +813,29 @@ def show_category_metrics_with_region(df, model_col, asset_type):
 
     region_col = find_column(df, ["place"] if asset_type == "Workstation" else ["site", "user site", "usersite"])
     region_label = "Place" if asset_type == "Workstation" else "Site"
-    
+
     col_left, col_right = st.columns([1, 1])
-    
+
     with col_left:
         model_counts = df[model_col].value_counts().sort_values(ascending=False)
         st.markdown(f'<div class="section-header">Unit Breakdown by {escape(str(model_col))}</div>', unsafe_allow_html=True)
-        
+
         model_df = pd.DataFrame({
             model_col: model_counts.index,
             "Total Units": model_counts.values
         })
-        
+
         st.dataframe(model_df, use_container_width=True, hide_index=True)
-    
+
     with col_right:
         if region_col and region_col in df.columns:
             st.markdown(f'<div class="section-header">Regional Breakdown by {escape(str(region_label))}</div>', unsafe_allow_html=True)
-            
+
             pivot_data = df.groupby([region_col, model_col]).size().unstack(fill_value=0)
             pivot_data["Total"] = pivot_data.sum(axis=1)
             pivot_data.loc["Grand Total"] = pivot_data.sum()
             pivot_data = pivot_data.reset_index().rename(columns={region_col: "Region"})
-            
+
             st.dataframe(pivot_data, use_container_width=True, hide_index=True)
         else:
             st.info(f"{region_label} column not found in Excel file")
@@ -854,8 +867,8 @@ def create_pie_chart(df, model_col):
     )
 
     fig.update_layout(
-        showlegend=True, 
-        height=400, 
+        showlegend=True,
+        height=400,
         margin=dict(t=50, b=0, l=0, r=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -868,9 +881,9 @@ def create_dimension_chart(df, dimension_col, dimension_label):
     """Create a bar chart for a named asset dimension."""
     if not dimension_col:
         return None
-    
+
     dimension_counts = df[dimension_col].value_counts().head(10)
-    
+
     fig = px.bar(
         x=dimension_counts.values,
         y=dimension_counts.index,
@@ -879,10 +892,10 @@ def create_dimension_chart(df, dimension_col, dimension_label):
         labels={'x': 'Asset Count', 'y': dimension_label},
         color_discrete_sequence=['#0066B3']
     )
-    
+
     fig.update_layout(
-        showlegend=False, 
-        height=400, 
+        showlegend=False,
+        height=400,
         margin=dict(t=50, b=50, l=0, r=0),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
@@ -902,7 +915,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
     st.sidebar.markdown('<div class="sidebar-section">Asset Filters</div>', unsafe_allow_html=True)
 
     filters = {}
-    
+
     # Model Filter
     if model_col:
         filters[model_col] = st.sidebar.multiselect(
@@ -910,7 +923,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             df[model_col].unique(),
             key="filter_model"
         )
-    
+
     # Type Filter
     if type_col:
         filters[type_col] = st.sidebar.multiselect(
@@ -918,7 +931,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             df[type_col].unique(),
             key="filter_type"
         )
-    
+
     # Site Filter
     site_col = "site" if "site" in df.columns else find_column(df, ["site", "user site", "usersite"])
     if site_col:
@@ -927,7 +940,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             df[site_col].unique(),
             key="filter_site"
         )
-    
+
     # Location Filter
     location_col = "location" if "location" in df.columns else find_column(df, ["location"])
     if location_col:
@@ -936,7 +949,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             df[location_col].unique(),
             key="filter_location"
         )
-    
+
     # Department Filter
     dept_col = "department" if "department" in df.columns else find_column(df, ["department", "user department"])
     if dept_col:
@@ -945,7 +958,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             df[dept_col].unique(),
             key="filter_department"
         )
-    
+
     # Workstation-specific filters
     if asset_type == "Workstation":
         status_col = "workstation_status" if "workstation_status" in df.columns else find_column(df, ["workstation status", "workstationstatus"])
@@ -955,7 +968,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 df[status_col].unique(),
                 key="filter_status"
             )
-        
+
         place_col = "place" if "place" in df.columns else find_column(df, ["place"])
         if place_col:
             filters[place_col] = st.sidebar.multiselect(
@@ -963,7 +976,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 df[place_col].unique(),
                 key="filter_place"
             )
-        
+
         state_col = "state" if "state" in df.columns else find_column(df, ["state"])
         if state_col:
             filters[state_col] = st.sidebar.multiselect(
@@ -980,7 +993,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 df[programme_col].unique(),
                 key="filter_programme"
             )
-        
+
         state_col = "state" if "state" in df.columns else find_column(df, ["state"])
         if state_col:
             filters[state_col] = st.sidebar.multiselect(
@@ -1006,9 +1019,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
 
     if search_query:
-        filtered_df = filtered_df[filtered_df.apply(
-            lambda row: row.astype(str).str.contains(search_query, case=False, regex=False, na=False).any(), axis=1
-        )]
+        filtered_df = apply_literal_search(filtered_df, search_query)
 
     expired_df = filtered_df[
         filtered_df["ITAM Lifecycle Status"].eq("Expired")
@@ -1054,7 +1065,7 @@ def create_sample_workstation_file():
         'Workstation Status': ['Active', 'Active', 'Active', 'Retired', 'Active'],
         'State': ['In Use', 'In Use', 'In Use', 'Storage', 'In Use']
     }
-    
+
     df = pd.DataFrame(sample_data)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -1078,7 +1089,7 @@ def create_sample_mobile_file():
         'Programme': ['Enterprise Mobility', 'Sales Force', 'Operations', 'Finance', 'HR Management'],
         'State': ['In Use', 'In Use', 'In Use', 'In Use', 'In Use']
     }
-    
+
     df = pd.DataFrame(sample_data)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -1087,507 +1098,508 @@ def create_sample_mobile_file():
     return output
 
 # ============================================================================
-# MAIN APPLICATION
-# ============================================================================
+if __name__ == '__main__':
+    # MAIN APPLICATION
+    # ============================================================================
 
-inject_professional_css()
+    inject_professional_css()
 
-st.markdown("""
-    <div style='text-align: center; padding: 20px 0;'>
-        <h1>Asset Management Dashboard System</h1>
-        <p style='color: #7B8794; font-size: 1rem; font-weight: 400;'>Professional Asset Tracking & Analytics Platform</p>
-    </div>
-""", unsafe_allow_html=True)
+    st.markdown("""
+        <div style='text-align: center; padding: 20px 0;'>
+            <h1>Asset Management Dashboard System</h1>
+            <p style='color: #7B8794; font-size: 1rem; font-weight: 400;'>Professional Asset Tracking & Analytics Platform</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
+    uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
 
-if uploaded_file is not None:
-    try:
-        # Validate file format
-        uploaded_file.seek(0)
-        file_bytes = uploaded_file.read()
-        
-        if not file_bytes.startswith(b'PK'):
-            st.error("File Format Error")
-            st.warning("The uploaded file is not a valid Excel (.xlsx) file.")
-            
-            with st.expander("Troubleshooting Guide - Click to Expand", expanded=True):
-                st.markdown("""
-                ### Common Causes & Solutions:
-                
-                #### 1. File Permission Restrictions (Most Common)
-                Your Excel file may have permission restrictions (Internal Use, Confidential, etc.)
-                
-                **Solution:**
-                - Open file in Microsoft Excel
-                - Click **File** → **Info** → **Protect Workbook**
-                - Remove all restrictions/permissions
-                - **Save As** → Choose **Excel Workbook (*.xlsx)**
-                - Upload the new unrestricted file
-                
-                ---
-                
-                #### 2. Wrong File Format
-                File might be `.xls` (old format) renamed to `.xlsx`
-                
-                **Solution:**
-                - Open in Excel
-                - **File** → **Save As**
-                - Select format: **Excel Workbook (*.xlsx)**
-                - Save with new name
-                
-                ---
-                
-                #### 3. Corrupted File
-                File may be damaged during transfer
-                
-                **Solution:**
-                - Open file in Excel (Excel may auto-repair)
-                - If warning appears, click **Yes** to repair
-                - **Save As** new file
-                - Try uploading new file
-                
-                ---
-                
-                #### 4. Password Protected
-                File has password protection
-                
-                **Solution:**
-                - Open in Excel
-                - **File** → **Info** → **Protect Workbook**
-                - Remove password
-                - Save and retry
-                
-                ---
-                
-                #### 5. CSV Saved as .xlsx
-                CSV file with extension changed to .xlsx
-                
-                **Solution:**
-                - Open file in Excel
-                - **Save As** → **Excel Workbook (*.xlsx)**
-                
-                ---
-                
-                #### 6. Incomplete Download
-                File not fully downloaded from email/cloud
-                
-                **Solution:**
-                - Download file again
-                - Verify file size matches original
-                - Try uploading again
-                """)
-                
-                st.info("Quick Fix: Use the sample templates below, then copy your data into them.")
-                
-                col_sample1, col_sample2 = st.columns(2)
-                with col_sample1:
-                    sample_ws = create_sample_workstation_file()
-                    st.download_button(
-                        label="Download Workstation Template",
-                        data=sample_ws,
-                        file_name="workstation_template.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-                with col_sample2:
-                    sample_mb = create_sample_mobile_file()
-                    st.download_button(
-                        label="Download Mobile Template",
-                        data=sample_mb,
-                        file_name="mobile_template.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-            st.stop()
-        
-        # Read Excel file
-        uploaded_file.seek(0)
-        xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
-        sheet_names = xls.sheet_names
-        selected_sheet = st.sidebar.selectbox("Select Sheet", sheet_names)
+    if uploaded_file is not None:
+        try:
+            # Validate file format
+            uploaded_file.seek(0)
+            file_bytes = uploaded_file.read()
 
-        # Detect header row
-        uploaded_file.seek(0)
-        header_row = detect_header_row(uploaded_file, selected_sheet)
-        if header_row is None:
-            st.warning(
-                "Automatic header detection could not find a confident company export header. "
-                "Enable Manual Header Row Selection and choose the table header row."
-            )
-        
-        st.sidebar.markdown("---")
-        st.sidebar.markdown('<div class="sidebar-section">Header Settings</div>', unsafe_allow_html=True)
-        use_manual = st.sidebar.checkbox("Manual Header Row Selection", value=False)
-        if use_manual:
-            header_row = st.sidebar.number_input(
-                "Header Row (0-based)",
-                min_value=0,
-                max_value=20,
-                value=header_row if header_row is not None else 0,
-            )
-            st.sidebar.success(f"Using row {header_row} as header")
-        elif header_row is None:
-            st.stop()
+            if not file_bytes.startswith(b'PK'):
+                st.error("File Format Error")
+                st.warning("The uploaded file is not a valid Excel (.xlsx) file.")
 
-        # Load data
-        uploaded_file.seek(0)
-        df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
-        
-        df.columns = [str(c).strip() for c in df.columns]
-        df = df.loc[:, ~df.columns.duplicated(keep='first')]
-        
-        # Detect asset type
-        asset_type = detect_asset_type_from_data(df)
-        if asset_type == "Unknown":
-            st.error("Could not confidently detect this export. Expected 'Workstation Type' or Product Type values of 'IT Smartphones' or 'IT Tablets'.")
-            st.stop()
+                with st.expander("Troubleshooting Guide - Click to Expand", expanded=True):
+                    st.markdown("""
+                    ### Common Causes & Solutions:
 
-        missing_required = validate_source_columns(df, asset_type)
-        if missing_required:
-            st.error(
-                f"This {asset_type.lower()} export is missing required columns: "
-                + ", ".join(missing_required)
-            )
-            st.info("Analysis stopped safely. Check the export headers and select the correct header row.")
-            st.stop()
+                    #### 1. File Permission Restrictions (Most Common)
+                    Your Excel file may have permission restrictions (Internal Use, Confidential, etc.)
 
-        df = build_canonical_dataframe(df, asset_type)
-        st.sidebar.success(f"Detected: **{asset_type}** Assets")
-        
-        # Show columns
-        with st.sidebar.expander("Excel Columns Found", expanded=False):
-            st.write(f"**Total columns:** {len(df.columns)}")
-            for idx, col in enumerate(df.columns, 1):
-                st.text(f"{idx}. {col}")
-        
-        # Get key columns
-        model_col = get_model_column(df, asset_type)
-        type_col = get_type_column(df, asset_type)
-        
-        if not model_col:
-            st.error("Model column not found in Excel file.")
-            st.info("Ensure Excel has 'Model' (Workstation) or 'Product' (Mobile) column")
-            st.stop()
-        
-        # Process data
-        df = calculate_asset_age(df)
-        
-        expired_warranty_df = None
-        if asset_type == "Workstation":
-            df, expired_warranty_df = get_warranty_status(df)
-        df = run_itam_audit(df)
+                    **Solution:**
+                    - Open file in Microsoft Excel
+                    - Click **File** → **Info** → **Protect Workbook**
+                    - Remove all restrictions/permissions
+                    - **Save As** → Choose **Excel Workbook (*.xlsx)**
+                    - Upload the new unrestricted file
 
-        # Data validation
-        st.markdown("---")
-        with st.expander("Data Validation Report", expanded=False):
-            issues = validate_data(df, asset_type, model_col)
-            show_validation_issues(issues)
+                    ---
 
-        audit_review_count = int(df["ITAM Review Required"].sum())
-        audit_high_count = int(df["ITAM Highest Severity"].eq("High").sum())
-        replacement_candidate_count = int(df["ITAM Replacement Candidate"].sum())
-        st.markdown('<div class="section-header">ITAM Audit Summary</div>', unsafe_allow_html=True)
-        audit_col1, audit_col2, audit_col3 = st.columns(3)
-        audit_metrics = [
-            (audit_col1, "ASSETS REQUIRING REVIEW", audit_review_count, "card-warning"),
-            (audit_col2, "HIGH SEVERITY FINDINGS", audit_high_count, "card-danger"),
-            (audit_col3, "REPLACEMENT CANDIDATES", replacement_candidate_count, "card-info"),
-        ]
-        for column, label, value, card_class in audit_metrics:
-            with column:
-                st.markdown(f"""
-                    <div class="metric-card {card_class}">
-                        <div class="metric-label">{label}</div>
-                        <h2>{value}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
+                    #### 2. Wrong File Format
+                    File might be `.xls` (old format) renamed to `.xlsx`
 
-        # Sidebar controls
-        df_filtered, df_expired, df_selected_replacement = sidebar_controls(df, asset_type, model_col, type_col)
+                    **Solution:**
+                    - Open in Excel
+                    - **File** → **Save As**
+                    - Select format: **Excel Workbook (*.xlsx)**
+                    - Save with new name
 
-        # Export section
-        st.sidebar.markdown("---")
-        st.sidebar.markdown('<div class="sidebar-section">Export Data</div>', unsafe_allow_html=True)
-        
-        if asset_type == "Workstation":
-            col_exp1, col_exp2, col_exp3 = st.sidebar.columns(3)
-        else:
-            col_exp1, col_exp2 = st.sidebar.columns(2)
-        
-        with col_exp1:
-            excel_data = export_to_excel(df_filtered)
-            st.download_button(
-                label="All",
-                data=excel_data,
-                file_name=f"{asset_type.lower()}_assets_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                help="Export all filtered data"
-            )
-        
-        with col_exp2:
-            if df_expired is not None and not df_expired.empty:
-                excel_expired = export_to_excel(df_expired)
-                st.download_button(
-                    label="Expired",
-                    data=excel_expired,
-                    file_name=f"{asset_type.lower()}_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Export expired assets only"
+                    ---
+
+                    #### 3. Corrupted File
+                    File may be damaged during transfer
+
+                    **Solution:**
+                    - Open file in Excel (Excel may auto-repair)
+                    - If warning appears, click **Yes** to repair
+                    - **Save As** new file
+                    - Try uploading new file
+
+                    ---
+
+                    #### 4. Password Protected
+                    File has password protection
+
+                    **Solution:**
+                    - Open in Excel
+                    - **File** → **Info** → **Protect Workbook**
+                    - Remove password
+                    - Save and retry
+
+                    ---
+
+                    #### 5. CSV Saved as .xlsx
+                    CSV file with extension changed to .xlsx
+
+                    **Solution:**
+                    - Open file in Excel
+                    - **Save As** → **Excel Workbook (*.xlsx)**
+
+                    ---
+
+                    #### 6. Incomplete Download
+                    File not fully downloaded from email/cloud
+
+                    **Solution:**
+                    - Download file again
+                    - Verify file size matches original
+                    - Try uploading again
+                    """)
+
+                    st.info("Quick Fix: Use the sample templates below, then copy your data into them.")
+
+                    col_sample1, col_sample2 = st.columns(2)
+                    with col_sample1:
+                        sample_ws = create_sample_workstation_file()
+                        st.download_button(
+                            label="Download Workstation Template",
+                            data=sample_ws,
+                            file_name="workstation_template.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    with col_sample2:
+                        sample_mb = create_sample_mobile_file()
+                        st.download_button(
+                            label="Download Mobile Template",
+                            data=sample_mb,
+                            file_name="mobile_template.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                st.stop()
+
+            # Read Excel file
+            uploaded_file.seek(0)
+            xls = pd.ExcelFile(uploaded_file, engine='openpyxl')
+            sheet_names = xls.sheet_names
+            selected_sheet = st.sidebar.selectbox("Select Sheet", sheet_names)
+
+            # Detect header row
+            uploaded_file.seek(0)
+            header_row = detect_header_row(uploaded_file, selected_sheet)
+            if header_row is None:
+                st.warning(
+                    "Automatic header detection could not find a confident company export header. "
+                    "Enable Manual Header Row Selection and choose the table header row."
                 )
-        
-        if asset_type == "Workstation":
-            with col_exp3:
-                if expired_warranty_df is not None and not expired_warranty_df.empty:
-                    excel_warranty = export_to_excel(expired_warranty_df)
-                    st.download_button(
-                        label="Warranty",
-                        data=excel_warranty,
-                        file_name=f"warranty_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        help="Export expired warranties"
-                    )
-        
-        # Help section
-        st.sidebar.markdown("---")
-        st.sidebar.markdown('<div class="sidebar-section">Help & Support</div>', unsafe_allow_html=True)
-        
-        with st.sidebar.expander("Troubleshooting"):
-            st.markdown("""
-            **Common Issues:**
-            
-            **Model column not found**
-            - Ensure Excel has 'Model' (Workstation) or 'Product' (Mobile) column
-            
-            **Error reading file**
-            - Save file as .xlsx format
-            - Remove password protection
-            
-            **Wrong asset type detected**
-            - Check column names match expected format
-            
-            **Data not showing correctly**
-            - Verify header row is correct
-            - Check for merged cells in Excel
-            """)
-        
-        with st.sidebar.expander("Contact Support"):
-            st.markdown("""
-            **Need Help?**
-            
-            Email: khalis.abdrahim@gmail.com  
-            
-            **Response Time:**  
-            Mon-Fri: Within 24 hours  
-            Weekend: Within 48 hours
-            """)
-        
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("""
-            <div style='text-align: center; color: #7B8794; font-size: 0.85em;'>
-                <strong>Asset Management Dashboard System</strong><br/>
-                Version 2.4.0<br/>
-                <br/>
-                &copy; 2025 All rights reserved.<br/>
-                Developed by <strong>MKAR</strong><br/>
-            </div>
-        """, unsafe_allow_html=True)
 
-        # Dashboard Summary
-        st.markdown('<div class="section-header">Dashboard Summary</div>', unsafe_allow_html=True)
-        show_summary_cards(df_filtered, df_expired)
+            st.sidebar.markdown("---")
+            st.sidebar.markdown('<div class="sidebar-section">Header Settings</div>', unsafe_allow_html=True)
+            use_manual = st.sidebar.checkbox("Manual Header Row Selection", value=False)
+            if use_manual:
+                header_row = st.sidebar.number_input(
+                    "Header Row (0-based)",
+                    min_value=0,
+                    max_value=20,
+                    value=header_row if header_row is not None else 0,
+                )
+                st.sidebar.success(f"Using row {header_row} as header")
+            elif header_row is None:
+                st.stop()
 
-        # Type Statistics
-        if type_col:
+            # Load data
+            uploaded_file.seek(0)
+            df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=header_row, engine='openpyxl')
+
+            df.columns = [str(c).strip() for c in df.columns]
+            df = df.loc[:, ~df.columns.duplicated(keep='first')]
+
+            # Detect asset type
+            asset_type = detect_asset_type_from_data(df)
+            if asset_type == "Unknown":
+                st.error("Could not confidently detect this export. Expected 'Workstation Type' or Product Type values of 'IT Smartphones' or 'IT Tablets'.")
+                st.stop()
+
+            missing_required = validate_source_columns(df, asset_type)
+            if missing_required:
+                st.error(
+                    f"This {asset_type.lower()} export is missing required columns: "
+                    + ", ".join(missing_required)
+                )
+                st.info("Analysis stopped safely. Check the export headers and select the correct header row.")
+                st.stop()
+
+            df = build_canonical_dataframe(df, asset_type)
+            st.sidebar.success(f"Detected: **{asset_type}** Assets")
+
+            # Show columns
+            with st.sidebar.expander("Excel Columns Found", expanded=False):
+                st.write(f"**Total columns:** {len(df.columns)}")
+                for idx, col in enumerate(df.columns, 1):
+                    st.text(f"{idx}. {col}")
+
+            # Get key columns
+            model_col = get_model_column(df, asset_type)
+            type_col = get_type_column(df, asset_type)
+
+            if not model_col:
+                st.error("Model column not found in Excel file.")
+                st.info("Ensure Excel has 'Model' (Workstation) or 'Product' (Mobile) column")
+                st.stop()
+
+            # Process data
+            df = calculate_asset_age(df)
+
+            expired_warranty_df = None
+            if asset_type == "Workstation":
+                df, expired_warranty_df = get_warranty_status(df)
+            df = run_itam_audit(df)
+
+            # Data validation
             st.markdown("---")
-            show_type_cards(df_filtered, type_col, asset_type)
+            with st.expander("Data Validation Report", expanded=False):
+                issues = validate_data(df, asset_type, model_col)
+                show_validation_issues(issues)
 
-        # Warranty Status
-        if asset_type == "Workstation" and "Warranty Status" in df_filtered.columns:
-            st.markdown("---")
-            st.markdown('<div class="section-header">Warranty Status</div>', unsafe_allow_html=True)
-            show_warranty_summary(df_filtered, model_col)
+            audit_review_count = int(df["ITAM Review Required"].sum())
+            audit_high_count = int(df["ITAM Highest Severity"].eq("High").sum())
+            replacement_candidate_count = int(df["ITAM Replacement Candidate"].sum())
+            st.markdown('<div class="section-header">ITAM Audit Summary</div>', unsafe_allow_html=True)
+            audit_col1, audit_col2, audit_col3 = st.columns(3)
+            audit_metrics = [
+                (audit_col1, "ASSETS REQUIRING REVIEW", audit_review_count, "card-warning"),
+                (audit_col2, "HIGH SEVERITY ASSETS", audit_high_count, "card-danger"),
+                (audit_col3, "REPLACEMENT CANDIDATES", replacement_candidate_count, "card-info"),
+            ]
+            for column, label, value, card_class in audit_metrics:
+                with column:
+                    st.markdown(f"""
+                        <div class="metric-card {card_class}">
+                            <div class="metric-label">{label}</div>
+                            <h2>{value}</h2>
+                        </div>
+                    """, unsafe_allow_html=True)
 
-        # Asset Age Analysis
-        if "Asset Age" in df_filtered.columns:
-            st.markdown("---")
-            st.markdown('<div class="section-header">Asset Age Analysis</div>', unsafe_allow_html=True)
-            show_asset_age_summary(df_filtered)
+            # Sidebar controls
+            df_filtered, df_expired, df_selected_replacement = sidebar_controls(df, asset_type, model_col, type_col)
 
-        # Category Metrics
-        st.markdown("---")
-        show_category_metrics_with_region(df_filtered, model_col, asset_type)
+            # Export section
+            st.sidebar.markdown("---")
+            st.sidebar.markdown('<div class="sidebar-section">Export Data</div>', unsafe_allow_html=True)
 
-        # Visual Analytics
-        st.markdown("---")
-        st.markdown('<div class="section-header">Visual Analytics</div>', unsafe_allow_html=True)
-        
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            pie_fig = create_pie_chart(df_filtered, model_col)
-            if pie_fig:
-                st.plotly_chart(pie_fig, use_container_width=True)
-        
-        with col_chart2:
-            dept_col = find_column(df_filtered, ["department", "user department"])
-            dept_fig = create_dimension_chart(df_filtered, dept_col, "Department")
-            if dept_fig:
-                st.plotly_chart(dept_fig, use_container_width=True)
+            if asset_type == "Workstation":
+                col_exp1, col_exp2, col_exp3 = st.sidebar.columns(3)
             else:
-                st.info("Department data not available")
+                col_exp1, col_exp2 = st.sidebar.columns(2)
 
-        location_col = find_column(df_filtered, ["location"])
-        loc_fig = create_dimension_chart(df_filtered, location_col, "Location")
-        if loc_fig:
-            st.plotly_chart(loc_fig, use_container_width=True)
+            with col_exp1:
+                excel_data = export_to_excel(df_filtered)
+                st.download_button(
+                    label="All",
+                    data=excel_data,
+                    file_name=f"{asset_type.lower()}_assets_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    help="Export all filtered data"
+                )
 
-        # Replacement Assets
-        if not df_selected_replacement.empty:
+            with col_exp2:
+                if df_expired is not None and not df_expired.empty:
+                    excel_expired = export_to_excel(df_expired)
+                    st.download_button(
+                        label="Expired",
+                        data=excel_expired,
+                        file_name=f"{asset_type.lower()}_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        help="Export expired assets only"
+                    )
+
+            if asset_type == "Workstation":
+                with col_exp3:
+                    if expired_warranty_df is not None and not expired_warranty_df.empty:
+                        excel_warranty = export_to_excel(expired_warranty_df)
+                        st.download_button(
+                            label="Warranty",
+                            data=excel_warranty,
+                            file_name=f"warranty_expired_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            help="Export expired warranties"
+                        )
+
+            # Help section
+            st.sidebar.markdown("---")
+            st.sidebar.markdown('<div class="sidebar-section">Help & Support</div>', unsafe_allow_html=True)
+
+            with st.sidebar.expander("Troubleshooting"):
+                st.markdown("""
+                **Common Issues:**
+
+                **Model column not found**
+                - Ensure Excel has 'Model' (Workstation) or 'Product' (Mobile) column
+
+                **Error reading file**
+                - Save file as .xlsx format
+                - Remove password protection
+
+                **Wrong asset type detected**
+                - Check column names match expected format
+
+                **Data not showing correctly**
+                - Verify header row is correct
+                - Check for merged cells in Excel
+                """)
+
+            with st.sidebar.expander("Contact Support"):
+                st.markdown("""
+                **Need Help?**
+
+                Email: khalis.abdrahim@gmail.com
+
+                **Response Time:**
+                Mon-Fri: Within 24 hours
+                Weekend: Within 48 hours
+                """)
+
+            st.sidebar.markdown("---")
+            st.sidebar.markdown("""
+                <div style='text-align: center; color: #7B8794; font-size: 0.85em;'>
+                    <strong>Asset Management Dashboard System</strong><br/>
+                    Version 2.4.0<br/>
+                    <br/>
+                    &copy; 2025 All rights reserved.<br/>
+                    Developed by <strong>MKAR</strong><br/>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Dashboard Summary
+            st.markdown('<div class="section-header">Dashboard Summary</div>', unsafe_allow_html=True)
+            show_summary_cards(df_filtered, df_expired)
+
+            # Type Statistics
+            if type_col:
+                st.markdown("---")
+                show_type_cards(df_filtered, type_col, asset_type)
+
+            # Warranty Status
+            if asset_type == "Workstation" and "Warranty Status" in df_filtered.columns:
+                st.markdown("---")
+                st.markdown('<div class="section-header">Warranty Status</div>', unsafe_allow_html=True)
+                show_warranty_summary(df_filtered, model_col)
+
+            # Asset Age Analysis
+            if "Asset Age" in df_filtered.columns:
+                st.markdown("---")
+                st.markdown('<div class="section-header">Asset Age Analysis</div>', unsafe_allow_html=True)
+                show_asset_age_summary(df_filtered)
+
+            # Category Metrics
             st.markdown("---")
-            st.markdown('<div class="section-header">Assets Selected for Replacement Review</div>', unsafe_allow_html=True)
-            st.dataframe(df_selected_replacement, use_container_width=True, hide_index=True)
+            show_category_metrics_with_region(df_filtered, model_col, asset_type)
 
-        # Asset Details
-        st.markdown("---")
-        st.markdown('<div class="section-header">Asset Details</div>', unsafe_allow_html=True)
-        
-        year_col = find_column(df_filtered, ["year of purchase", "yearofpurchase"])
-        display_columns = [col for col in df_filtered.columns if col != year_col]
-        
-        st.info(f"Displaying {len(display_columns)} columns from Excel file")
-        st.dataframe(df_filtered[display_columns], use_container_width=True, height=600)
+            # Visual Analytics
+            st.markdown("---")
+            st.markdown('<div class="section-header">Visual Analytics</div>', unsafe_allow_html=True)
 
-    except Exception as e:
-        st.error(f"Error reading Excel file: {str(e)}")
-        st.warning("**Troubleshooting Tips:**")
-        st.markdown("""
-        1. Ensure file format is .xlsx (Excel)
-        2. File must have header row with clear column names
-        3. Try opening file in Excel and save again
-        4. Remove password protection if any
-        5. Ensure file is not corrupted
-        """)
+            col_chart1, col_chart2 = st.columns(2)
 
-else:
-    # Language selection
-    if 'language' not in st.session_state:
-        st.session_state.language = 'EN'
-    
-    col_lang1, col_lang2, col_space = st.columns([1, 1, 8])
-    with col_lang1:
-        if st.button("English", use_container_width=True, 
-                     type="primary" if st.session_state.language == 'EN' else "secondary"):
-            st.session_state.language = 'EN'
-            st.rerun()
-    with col_lang2:
-        if st.button("Bahasa", use_container_width=True,
-                     type="primary" if st.session_state.language == 'MY' else "secondary"):
-            st.session_state.language = 'MY'
-            st.rerun()
-    
-    st.markdown("---")
-    
-    if st.session_state.language == 'EN':
-        st.info("Please upload your Excel file to get started.")
-        
-        st.markdown("### How to Use This Dashboard")
-        st.markdown("""
-        This dashboard reads **original column names** directly from your Excel file.
+            with col_chart1:
+                pie_fig = create_pie_chart(df_filtered, model_col)
+                if pie_fig:
+                    st.plotly_chart(pie_fig, use_container_width=True)
 
-        #### Key Features
-        - Auto-detection of asset type (Workstation or Mobile)
-        - All original columns displayed
-        - Regional breakdown by Place/Site
-        - Clean and professional UI
-        - Smart filtering and search
+            with col_chart2:
+                dept_col = find_column(df_filtered, ["department", "user department"])
+                dept_fig = create_dimension_chart(df_filtered, dept_col, "Department")
+                if dept_fig:
+                    st.plotly_chart(dept_fig, use_container_width=True)
+                else:
+                    st.info("Department data not available")
 
-        #### Required Columns
-        
-        **Workstation Assets:**
-        - `Model` (Required)
-        - `Workstation Type`, `Warranty Expiry`, `Place` (Optional)
+            location_col = find_column(df_filtered, ["location"])
+            loc_fig = create_dimension_chart(df_filtered, location_col, "Location")
+            if loc_fig:
+                st.plotly_chart(loc_fig, use_container_width=True)
 
-        **Mobile Assets:**
-        - `Product` (Required)
-        - `Product Type`, `Programme`, `Site` (Optional)
-        """)
-        
-        col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
-        with col_sample1:
-            sample_ws = create_sample_workstation_file()
-            st.download_button(
-                label="Workstation Sample",
-                data=sample_ws,
-                file_name="sample_workstation.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        with col_sample2:
-            sample_mb = create_sample_mobile_file()
-            st.download_button(
-                label="Mobile Sample",
-                data=sample_mb,
-                file_name="sample_mobile.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        
-        st.success("""
-        **Your Data Security**  
-        - Files are NOT stored on any server  
-        - Processing happens in memory only  
-        - Data stays completely private
-        """)
-    
+            # Replacement Assets
+            if not df_selected_replacement.empty:
+                st.markdown("---")
+                st.markdown('<div class="section-header">Assets Selected for Replacement Review</div>', unsafe_allow_html=True)
+                st.dataframe(df_selected_replacement, use_container_width=True, hide_index=True)
+
+            # Asset Details
+            st.markdown("---")
+            st.markdown('<div class="section-header">Asset Details</div>', unsafe_allow_html=True)
+
+            year_col = find_column(df_filtered, ["year of purchase", "yearofpurchase"])
+            display_columns = [col for col in df_filtered.columns if col != year_col]
+
+            st.info(f"Displaying {len(display_columns)} columns from Excel file")
+            st.dataframe(df_filtered[display_columns], use_container_width=True, height=600)
+
+        except Exception as e:
+            st.error(f"Error reading Excel file: {str(e)}")
+            st.warning("**Troubleshooting Tips:**")
+            st.markdown("""
+            1. Ensure file format is .xlsx (Excel)
+            2. File must have header row with clear column names
+            3. Try opening file in Excel and save again
+            4. Remove password protection if any
+            5. Ensure file is not corrupted
+            """)
+
     else:
-        st.info("Sila muat naik fail Excel anda untuk bermula.")
-        
-        st.markdown("### Cara Guna Dashboard Ini")
-        st.markdown("""
-        Dashboard ini membaca nama asal kolum terus dari fail Excel anda.
+        # Language selection
+        if 'language' not in st.session_state:
+            st.session_state.language = 'EN'
 
-        #### Ciri-ciri Utama
-        - Auto-detect jenis aset
-        - Semua kolum asal dipaparkan
-        - Pecahan mengikut Rantau
-        - UI bersih dan profesional
-        - Penapisan pintar
+        col_lang1, col_lang2, col_space = st.columns([1, 1, 8])
+        with col_lang1:
+            if st.button("English", use_container_width=True,
+                         type="primary" if st.session_state.language == 'EN' else "secondary"):
+                st.session_state.language = 'EN'
+                st.rerun()
+        with col_lang2:
+            if st.button("Bahasa", use_container_width=True,
+                         type="primary" if st.session_state.language == 'MY' else "secondary"):
+                st.session_state.language = 'MY'
+                st.rerun()
 
-        #### Kolum yang Diperlukan
-        
-        **Aset Workstation:**
-        - `Model` (Wajib)
-        - `Workstation Type`, `Warranty Expiry`, `Place` (Opsyenal)
+        st.markdown("---")
 
-        **Aset Mobile:**
-        - `Product` (Wajib)
-        - `Product Type`, `Programme`, `Site` (Opsyenal)
-        """)
-        
-        col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
-        with col_sample1:
-            sample_ws = create_sample_workstation_file()
-            st.download_button(
-                label="Contoh Workstation",
-                data=sample_ws,
-                file_name="contoh_workstation.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-        with col_sample2:
-            sample_mb = create_sample_mobile_file()
-            st.download_button(
-                label="Contoh Mobile",
-                data=sample_mb,
-                file_name="contoh_mobile.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+        if st.session_state.language == 'EN':
+            st.info("Please upload your Excel file to get started.")
 
-        st.success("""
-        **Keselamatan Data Anda**  
-        - Fail TIDAK disimpan di mana-mana pelayan  
-        - Pemprosesan berlaku sepenuhnya dalam memori
-        - Data anda kekal sepenuhnya peribadi
-        """)
+            st.markdown("### How to Use This Dashboard")
+            st.markdown("""
+            This dashboard reads **original column names** directly from your Excel file.
+
+            #### Key Features
+            - Auto-detection of asset type (Workstation or Mobile)
+            - All original columns displayed
+            - Regional breakdown by Place/Site
+            - Clean and professional UI
+            - Smart filtering and search
+
+            #### Required Columns
+
+            **Workstation Assets:**
+            - `Model` (Required)
+            - `Workstation Type`, `Warranty Expiry`, `Place` (Optional)
+
+            **Mobile Assets:**
+            - `Product` (Required)
+            - `Product Type`, `Programme`, `Site` (Optional)
+            """)
+
+            col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
+            with col_sample1:
+                sample_ws = create_sample_workstation_file()
+                st.download_button(
+                    label="Workstation Sample",
+                    data=sample_ws,
+                    file_name="sample_workstation.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col_sample2:
+                sample_mb = create_sample_mobile_file()
+                st.download_button(
+                    label="Mobile Sample",
+                    data=sample_mb,
+                    file_name="sample_mobile.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            st.success("""
+            **Your Data Security**
+            - Files are NOT stored on any server
+            - Processing happens in memory only
+            - Data stays completely private
+            """)
+
+        else:
+            st.info("Sila muat naik fail Excel anda untuk bermula.")
+
+            st.markdown("### Cara Guna Dashboard Ini")
+            st.markdown("""
+            Dashboard ini membaca nama asal kolum terus dari fail Excel anda.
+
+            #### Ciri-ciri Utama
+            - Auto-detect jenis aset
+            - Semua kolum asal dipaparkan
+            - Pecahan mengikut Rantau
+            - UI bersih dan profesional
+            - Penapisan pintar
+
+            #### Kolum yang Diperlukan
+
+            **Aset Workstation:**
+            - `Model` (Wajib)
+            - `Workstation Type`, `Warranty Expiry`, `Place` (Opsyenal)
+
+            **Aset Mobile:**
+            - `Product` (Wajib)
+            - `Product Type`, `Programme`, `Site` (Opsyenal)
+            """)
+
+            col_sample1, col_sample2, col_space2 = st.columns([2, 2, 6])
+            with col_sample1:
+                sample_ws = create_sample_workstation_file()
+                st.download_button(
+                    label="Contoh Workstation",
+                    data=sample_ws,
+                    file_name="contoh_workstation.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col_sample2:
+                sample_mb = create_sample_mobile_file()
+                st.download_button(
+                    label="Contoh Mobile",
+                    data=sample_mb,
+                    file_name="contoh_mobile.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+            st.success("""
+            **Keselamatan Data Anda**
+            - Fail TIDAK disimpan di mana-mana pelayan
+            - Pemprosesan berlaku sepenuhnya dalam memori
+            - Data anda kekal sepenuhnya peribadi
+            """)
