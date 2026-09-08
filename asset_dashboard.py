@@ -271,15 +271,84 @@ def detect_asset_type_from_data(df):
         return "Tablet"
     return "Unknown"
 
+CANONICAL_COLUMNS = [
+    "asset_type", "serial_number", "model", "asset_tag", "state", "user",
+    "employee_id", "email", "job_title", "department", "location", "site",
+    "purchase_year", "warranty_expiry", "programme", "place",
+    "workstation_status", "imei", "sim_number",
+]
+
+CANONICAL_SOURCE_MAP = {
+    "Workstation": {
+        "asset_type": "Workstation Type", "serial_number": "Serial Number",
+        "model": "Model", "asset_tag": "Asset Tag", "state": "State",
+        "user": "User", "employee_id": "User Employee ID", "email": "User Email",
+        "job_title": "User Jobtitle", "department": "Department", "location": "Location",
+        "site": "Site", "purchase_year": "Year Of Purchase",
+        "warranty_expiry": "Warranty Expiry", "programme": "Programme",
+        "place": "Place", "workstation_status": "Workstation Status",
+    },
+    "Smartphone": {
+        "asset_type": "Product Type", "serial_number": "Serial Number", "model": "Product",
+        "asset_tag": "AssetTag", "state": "State", "user": "User",
+        "employee_id": "User -> Employee ID", "email": "User -> Email",
+        "job_title": "User -> Job Title", "department": "User -> Department",
+        "location": "Location", "site": "User -> Site", "purchase_year": "Year Of Purchase",
+        "warranty_expiry": "Warranty Expiry Date", "programme": "Programme",
+        "place": "Place", "imei": "No. IMEI", "sim_number": "No. Sim",
+    },
+    "Tablet": {
+        "asset_type": "Product Type", "serial_number": "Serial Number", "model": "Product",
+        "asset_tag": "AssetTag", "state": "State", "user": "User",
+        "employee_id": "User -> Employee ID", "email": "User -> Email",
+        "job_title": "User -> Job Title", "department": "User -> Department",
+        "location": "Location", "site": "User -> Site", "purchase_year": "Year Of Purchase",
+        "warranty_expiry": "Warranty Expiry Date", "programme": "Programme",
+        "place": "Place", "imei": "No. IMEI", "sim_number": "No. Sim",
+    },
+}
+
+CANONICAL_REQUIRED_COLUMNS = {
+    "Workstation": ["Workstation Type", "Serial Number", "Model", "Asset Tag", "State", "Year Of Purchase"],
+    "Smartphone": ["Product Type", "Serial Number", "Product", "AssetTag", "State", "Year Of Purchase"],
+    "Tablet": ["Product Type", "Serial Number", "Product", "AssetTag", "State", "Year Of Purchase"],
+}
+
+
+def validate_source_columns(df, asset_type):
+    """Return required source headers that are absent from an export."""
+    normalized_columns = {normalize_text(column) for column in df.columns}
+    return [
+        column for column in CANONICAL_REQUIRED_COLUMNS.get(asset_type, [])
+        if normalize_text(column) not in normalized_columns
+    ]
+
+
+def build_canonical_dataframe(df, asset_type):
+    """Copy source values into the canonical ITAM schema without dropping raw columns."""
+    mapping = CANONICAL_SOURCE_MAP[asset_type]
+    source_columns = {normalize_text(column): column for column in df.columns}
+    canonical_df = df.copy()
+
+    for canonical_column in CANONICAL_COLUMNS:
+        source_column = mapping.get(canonical_column)
+        source_name = source_columns.get(normalize_text(source_column)) if source_column else None
+        canonical_df[canonical_column] = df[source_name] if source_name else pd.NA
+
+    canonical_df["asset_type"] = asset_type
+    source_type_name = source_columns.get(normalize_text(mapping["asset_type"]))
+    if source_type_name:
+        canonical_df["source_asset_subtype"] = df[source_type_name]
+    return canonical_df
+
+
 def get_model_column(df, asset_type):
     """Get model column based on asset type"""
-    return find_column(df, ["model"] if asset_type == "Workstation" else ["product"])
+    return "model" if "model" in df.columns else None
 
 def get_type_column(df, asset_type):
     """Get type column based on asset type"""
-    if asset_type == "Workstation":
-        return find_column(df, ["workstation type", "workstationtype"])
-    return find_column(df, ["product type", "producttype"])
+    return "source_asset_subtype" if "source_asset_subtype" in df.columns else None
 
 def detect_header_row(excel_file, sheet_name):
     """Find a confident company-export header row in the first 20 rows."""
@@ -325,7 +394,7 @@ def detect_header_row(excel_file, sheet_name):
 def calculate_asset_age(df):
     """Calculate nullable asset age and the authoritative ITAM lifecycle."""
     df = df.copy()
-    year_col = find_column(df, ["year of purchase", "yearofpurchase"])
+    year_col = "purchase_year" if "purchase_year" in df.columns else find_column(df, ["year of purchase", "yearofpurchase"])
     if year_col:
         current_year = pd.Timestamp.now().year
         purchase_year = pd.to_numeric(df[year_col], errors="coerce")
@@ -345,7 +414,7 @@ def calculate_asset_age(df):
 @st.cache_data
 def get_warranty_status(df):
     """Calculate warranty status"""
-    warranty_col = find_column(df, ["warranty expiry", "warrantyexpiry"])
+    warranty_col = "warranty_expiry" if "warranty_expiry" in df.columns else find_column(df, ["warranty expiry", "warrantyexpiry"])
     if not warranty_col:
         return df, None
 
@@ -370,12 +439,12 @@ def validate_data(df, asset_type, model_col):
     """Validate data and return list of issues"""
     issues = []
 
-    asset_tag_col = find_column(df, ["asset tag", "assettag"])
-    serial_col = find_column(df, ["serial number", "serialnumber"])
-    user_col = find_column(df, ["user"])
-    email_col = find_column(df, ["email"])
-    dept_col = find_column(df, ["department", "user department"])
-    location_col = find_column(df, ["location"])
+    asset_tag_col = "asset_tag" if "asset_tag" in df.columns else find_column(df, ["asset tag", "assettag"])
+    serial_col = "serial_number" if "serial_number" in df.columns else find_column(df, ["serial number", "serialnumber"])
+    user_col = "user" if "user" in df.columns else find_column(df, ["user"])
+    email_col = "email" if "email" in df.columns else find_column(df, ["email"])
+    dept_col = "department" if "department" in df.columns else find_column(df, ["department", "user department"])
+    location_col = "location" if "location" in df.columns else find_column(df, ["location"])
 
     def normalized_identifier(series):
         normalized = series.astype("string").str.strip().str.casefold()
@@ -716,7 +785,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
         )
     
     # Site Filter
-    site_col = find_column(df, ["site", "user site", "usersite"])
+    site_col = "site" if "site" in df.columns else find_column(df, ["site", "user site", "usersite"])
     if site_col:
         filters[site_col] = st.sidebar.multiselect(
             f"Filter by {site_col}",
@@ -725,7 +794,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
         )
     
     # Location Filter
-    location_col = find_column(df, ["location"])
+    location_col = "location" if "location" in df.columns else find_column(df, ["location"])
     if location_col:
         filters[location_col] = st.sidebar.multiselect(
             f"Filter by {location_col}",
@@ -734,7 +803,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
         )
     
     # Department Filter
-    dept_col = find_column(df, ["department", "user department"])
+    dept_col = "department" if "department" in df.columns else find_column(df, ["department", "user department"])
     if dept_col:
         filters[dept_col] = st.sidebar.multiselect(
             f"Filter by {dept_col}",
@@ -744,7 +813,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
     
     # Workstation-specific filters
     if asset_type == "Workstation":
-        status_col = find_column(df, ["workstation status", "workstationstatus"])
+        status_col = "workstation_status" if "workstation_status" in df.columns else find_column(df, ["workstation status", "workstationstatus"])
         if status_col:
             filters[status_col] = st.sidebar.multiselect(
                 f"Filter by {status_col}",
@@ -752,7 +821,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 key="filter_status"
             )
         
-        place_col = find_column(df, ["place"])
+        place_col = "place" if "place" in df.columns else find_column(df, ["place"])
         if place_col:
             filters[place_col] = st.sidebar.multiselect(
                 f"Filter by {place_col}",
@@ -760,7 +829,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 key="filter_place"
             )
         
-        state_col = find_column(df, ["state"])
+        state_col = "state" if "state" in df.columns else find_column(df, ["state"])
         if state_col:
             filters[state_col] = st.sidebar.multiselect(
                 f"Filter by {state_col}",
@@ -769,7 +838,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
             )
     else:
         # Mobile-specific filters
-        programme_col = find_column(df, ["programme", "program"])
+        programme_col = "programme" if "programme" in df.columns else find_column(df, ["programme", "program"])
         if programme_col:
             filters[programme_col] = st.sidebar.multiselect(
                 f"Filter by {programme_col}",
@@ -777,7 +846,7 @@ def sidebar_controls(df, asset_type, model_col, type_col):
                 key="filter_programme"
             )
         
-        state_col = find_column(df, ["state"])
+        state_col = "state" if "state" in df.columns else find_column(df, ["state"])
         if state_col:
             filters[state_col] = st.sidebar.multiselect(
                 f"Filter by {state_col}",
@@ -1038,6 +1107,17 @@ if uploaded_file is not None:
         if asset_type == "Unknown":
             st.error("Could not confidently detect this export. Expected 'Workstation Type' or Product Type values of 'IT Smartphones' or 'IT Tablets'.")
             st.stop()
+
+        missing_required = validate_source_columns(df, asset_type)
+        if missing_required:
+            st.error(
+                f"This {asset_type.lower()} export is missing required columns: "
+                + ", ".join(missing_required)
+            )
+            st.info("Analysis stopped safely. Check the export headers and select the correct header row.")
+            st.stop()
+
+        df = build_canonical_dataframe(df, asset_type)
         st.sidebar.success(f"Detected: **{asset_type}** Assets")
         
         # Show columns
