@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
+from html import escape
 from io import BytesIO
 import plotly.express as px
 import plotly.graph_objects as go
@@ -17,9 +18,6 @@ st.set_page_config(
 # ============================================================================
 # CONSTANTS
 # ============================================================================
-WORKSTATION_IDENTIFIERS = ["workstation", "model", "warranty", "place"]
-MOBILE_IDENTIFIERS = ["product", "programme", "program"]
-
 # ============================================================================
 # AIR SELANGOR THEME CSS
 # ============================================================================
@@ -243,15 +241,35 @@ def find_column(df, search_terms):
 # ============================================================================
 
 def detect_asset_type(df_columns):
-    """Auto-detect asset type from column names"""
-    normalized = [normalize_text(col) for col in df_columns]
-    
-    workstation_score = sum(1 for identifier in WORKSTATION_IDENTIFIERS 
-                           if any(identifier in norm for norm in normalized))
-    mobile_score = sum(1 for identifier in MOBILE_IDENTIFIERS 
-                      if any(identifier in norm for norm in normalized))
-    
-    return "Workstation" if workstation_score > mobile_score else "Mobile"
+    """Detect an asset type from the company's export-specific columns."""
+    normalized_columns = {normalize_text(column) for column in df_columns}
+    if "workstationtype" in normalized_columns:
+        return "Workstation"
+    return "Unknown"
+
+
+def detect_asset_type_from_data(df):
+    """Detect smartphone or tablet exports from exact Product Type values."""
+    normalized_columns = {
+        normalize_text(column): column for column in df.columns
+    }
+    if "workstationtype" in normalized_columns:
+        return "Workstation"
+
+    product_type_col = normalized_columns.get("producttype")
+    if not product_type_col:
+        return "Unknown"
+
+    values = {
+        str(value).strip().casefold()
+        for value in df[product_type_col].dropna()
+        if str(value).strip()
+    }
+    if values and values.issubset({"it smartphones"}):
+        return "Smartphone"
+    if values and values.issubset({"it tablets"}):
+        return "Tablet"
+    return "Unknown"
 
 def get_model_column(df, asset_type):
     """Get model column based on asset type"""
@@ -264,22 +282,40 @@ def get_type_column(df, asset_type):
     return find_column(df, ["product type", "producttype"])
 
 def detect_header_row(excel_file, sheet_name):
-    """Auto-detect header row in Excel file"""
+    """Find a confident company-export header row in the first 20 rows."""
     try:
-        preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=15, engine='openpyxl')
-        
-        keywords = ["model", "serial", "user", "department", "asset", "workstation", 
-                   "location", "site", "computer", "employee", "email", "product", 
-                   "mobile", "programme", "program"]
-        
+        preview = pd.read_excel(
+            excel_file,
+            sheet_name=sheet_name,
+            header=None,
+            nrows=20,
+            engine="openpyxl",
+        )
+
+        identity_columns = {"serialnumber", "assettag", "model", "product", "yearofpurchase"}
+        type_columns = {"workstationtype", "producttype"}
+        candidates = []
+
         for i, row in preview.iterrows():
-            values = row.astype(str).str.lower().str.strip()
-            matches = sum(1 for v in values if any(keyword in v for keyword in keywords))
-            if matches >= 3:
-                return i
-        return 0
-    except:
-        return 0
+            normalized_values = {
+                normalize_text(value)
+                for value in row.dropna()
+                if normalize_text(value)
+            }
+            matched_identity = normalized_values & identity_columns
+            matched_type = normalized_values & type_columns
+
+            # Require a type column plus most core identity columns. This
+            # avoids treating report metadata rows as the table header.
+            if matched_type and len(matched_identity) >= 3:
+                score = len(matched_identity) * 2 + len(matched_type)
+                candidates.append((score, i))
+
+        if candidates:
+            return max(candidates, key=lambda candidate: (candidate[0], -candidate[1]))[1]
+        return None
+    except Exception:
+        return None
 
 # ============================================================================
 # DATA PROCESSING FUNCTIONS
@@ -287,14 +323,23 @@ def detect_header_row(excel_file, sheet_name):
 
 @st.cache_data
 def calculate_asset_age(df):
-    """Calculate asset age from purchase year"""
+    """Calculate nullable asset age and the authoritative ITAM lifecycle."""
+    df = df.copy()
     year_col = find_column(df, ["year of purchase", "yearofpurchase"])
     if year_col:
         current_year = pd.Timestamp.now().year
-        df["Asset Age"] = current_year - pd.to_numeric(df[year_col], errors='coerce')
-        df["Asset Age"] = df["Asset Age"].fillna(0).astype(int)
+        purchase_year = pd.to_numeric(df[year_col], errors="coerce")
+        purchase_year = purchase_year.where(purchase_year.mod(1).eq(0))
+        asset_age = current_year - purchase_year
     else:
-        df["Asset Age"] = 0
+        asset_age = pd.Series(pd.NA, index=df.index, dtype="Float64")
+
+    df["Asset Age"] = asset_age.astype("Int64")
+    df["ITAM Lifecycle Status"] = "Unknown"
+    df.loc[df["Asset Age"].between(0, 1), "ITAM Lifecycle Status"] = "New"
+    df.loc[df["Asset Age"].between(2, 3), "ITAM Lifecycle Status"] = "Active"
+    df.loc[df["Asset Age"].between(4, 5), "ITAM Lifecycle Status"] = "Aging"
+    df.loc[df["Asset Age"] > 5, "ITAM Lifecycle Status"] = "Expired"
     return df
 
 @st.cache_data
@@ -306,22 +351,13 @@ def get_warranty_status(df):
 
     df_temp = df.copy()
     df_temp["Warranty Expiry Date"] = pd.to_datetime(df_temp[warranty_col], errors='coerce')
-    today = pd.Timestamp.now()
+    today = pd.Timestamp.now().normalize()
     df_temp["Days to Expiry"] = (df_temp["Warranty Expiry Date"] - today).dt.days
     
-    conditions = [
-        df_temp["Days to Expiry"] < 0,
-        (df_temp["Days to Expiry"] >= 0) & (df_temp["Days to Expiry"] <= 90),
-        df_temp["Days to Expiry"] > 90
-    ]
-    choices = ["Expired", "Expiring Soon", "Active"]
-    df_temp["Warranty Status"] = pd.Series(pd.NA, dtype="object")
-    df_temp["Warranty Status"] = df_temp["Warranty Status"].where(
-        ~df_temp["Days to Expiry"].notna(), 
-        pd.Series([choices[i] for i in [next((j for j, c in enumerate(conditions) if c.iloc[idx]), -1) 
-                   for idx in range(len(df_temp))]], dtype="object")
-    )
-    df_temp["Warranty Status"] = df_temp["Warranty Status"].fillna("Unknown")
+    df_temp["Warranty Status"] = "Unknown"
+    df_temp.loc[df_temp["Days to Expiry"] < 0, "Warranty Status"] = "Expired"
+    df_temp.loc[df_temp["Days to Expiry"].between(0, 90), "Warranty Status"] = "Expiring Soon"
+    df_temp.loc[df_temp["Days to Expiry"] > 90, "Warranty Status"] = "Active"
     
     expired_warranty_df = df_temp[df_temp["Warranty Status"] == "Expired"].copy()
     return df_temp, expired_warranty_df
@@ -341,27 +377,33 @@ def validate_data(df, asset_type, model_col):
     dept_col = find_column(df, ["department", "user department"])
     location_col = find_column(df, ["location"])
 
-    # Check duplicates
+    def normalized_identifier(series):
+        normalized = series.astype("string").str.strip().str.casefold()
+        return normalized.where(normalized.notna() & normalized.ne(""))
+
+    # Preserve displayed identifiers, but normalize only the comparison values.
     if asset_tag_col:
-        duplicates = df[df[asset_tag_col].duplicated(keep=False) & df[asset_tag_col].notna()]
+        comparison = normalized_identifier(df[asset_tag_col])
+        duplicates = df[comparison.notna() & comparison.duplicated(keep=False)]
         if not duplicates.empty:
             display_cols = [c for c in [asset_tag_col, model_col, serial_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Asset Tags",
-                "count": len(duplicates[asset_tag_col].unique()),
-                "details": f"Found {len(duplicates[asset_tag_col].unique())} duplicate asset tags",
+                "count": comparison[comparison.duplicated(keep=False)].nunique(),
+                "details": f"Found {comparison[comparison.duplicated(keep=False)].nunique()} duplicate asset tags",
                 "severity": "high",
                 "data": duplicates[display_cols].sort_values(asset_tag_col)
             })
 
     if serial_col:
-        duplicates = df[df[serial_col].duplicated(keep=False) & df[serial_col].notna()]
+        comparison = normalized_identifier(df[serial_col])
+        duplicates = df[comparison.notna() & comparison.duplicated(keep=False)]
         if not duplicates.empty:
             display_cols = [c for c in [serial_col, model_col, asset_tag_col, user_col] if c]
             issues.append({
                 "type": "Duplicate Serial Numbers",
-                "count": len(duplicates[serial_col].unique()),
-                "details": f"Found {len(duplicates[serial_col].unique())} duplicate serial numbers",
+                "count": comparison[comparison.duplicated(keep=False)].nunique(),
+                "details": f"Found {comparison[comparison.duplicated(keep=False)].nunique()} duplicate serial numbers",
                 "severity": "high",
                 "data": duplicates[display_cols].sort_values(serial_col)
             })
@@ -421,14 +463,14 @@ def show_summary_cards(df, df_expired=None):
     """Display summary metric cards"""
     total_assets = len(df)
     expired_assets = len(df_expired) if df_expired is not None else 0
-    active_assets = total_assets - expired_assets
+    within_lifecycle = (df["Asset Age"].notna() & (df["Asset Age"] <= 5)).sum() if "Asset Age" in df else 0
     replacement_rate = (expired_assets / total_assets * 100) if total_assets > 0 else 0
 
     col1, col2, col3, col4 = st.columns(4)
 
     cards = [
         (col1, "TOTAL ASSETS", total_assets, "card-primary"),
-        (col2, "ACTIVE ASSETS", active_assets, "card-success"),
+        (col2, "WITHIN LIFECYCLE", within_lifecycle, "card-success"),
         (col3, "EXPIRED ASSETS", expired_assets, "card-warning"),
         (col4, "REPLACEMENT RATE", f"{replacement_rate:.1f}%", "card-info")
     ]
@@ -447,7 +489,7 @@ def show_type_cards(df, type_col, asset_type):
     if not type_col:
         return
 
-    st.markdown(f'<div class="section-header">{type_col} Statistics</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-header">{escape(str(type_col))} Statistics</div>', unsafe_allow_html=True)
 
     type_counts = df[type_col].value_counts().sort_values(ascending=False)
     cols_per_row = min(4, len(type_counts))
@@ -457,7 +499,7 @@ def show_type_cards(df, type_col, asset_type):
         with cols[idx % cols_per_row]:
             st.markdown(f"""
                 <div class="type-card card-primary">
-                    <div class="type-label">{wtype}</div>
+                    <div class="type-label">{escape(str(wtype))}</div>
                     <div class="type-count">{count}</div>
                 </div>
             """, unsafe_allow_html=True)
@@ -559,7 +601,7 @@ def show_category_metrics_with_region(df, model_col, asset_type):
     
     with col_left:
         model_counts = df[model_col].value_counts().sort_values(ascending=False)
-        st.markdown(f'<div class="section-header">Unit Breakdown by {model_col}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-header">Unit Breakdown by {escape(str(model_col))}</div>', unsafe_allow_html=True)
         
         model_df = pd.DataFrame({
             model_col: model_counts.index,
@@ -570,7 +612,7 @@ def show_category_metrics_with_region(df, model_col, asset_type):
     
     with col_right:
         if region_col and region_col in df.columns:
-            st.markdown(f'<div class="section-header">Regional Breakdown by {region_label}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="section-header">Regional Breakdown by {escape(str(region_label))}</div>', unsafe_allow_html=True)
             
             pivot_data = df.groupby([region_col, model_col]).size().unstack(fill_value=0)
             pivot_data["Total"] = pivot_data.sum(axis=1)
@@ -618,19 +660,19 @@ def create_pie_chart(df, model_col):
     return fig
 
 @st.cache_data
-def create_department_chart(df, dept_col):
-    """Create bar chart for department distribution"""
-    if not dept_col:
+def create_dimension_chart(df, dimension_col, dimension_label):
+    """Create a bar chart for a named asset dimension."""
+    if not dimension_col:
         return None
     
-    dept_counts = df[dept_col].value_counts().head(10)
+    dimension_counts = df[dimension_col].value_counts().head(10)
     
     fig = px.bar(
-        x=dept_counts.values,
-        y=dept_counts.index,
+        x=dimension_counts.values,
+        y=dimension_counts.index,
         orientation='h',
-        title=f"Top 10 {dept_col} by Asset Count",
-        labels={'x': 'Asset Count', 'y': dept_col},
+        title=f"Top 10 {dimension_label} by Asset Count",
+        labels={'x': 'Asset Count', 'y': dimension_label},
         color_discrete_sequence=['#0066B3']
     )
     
@@ -643,6 +685,9 @@ def create_department_chart(df, dept_col):
         font=dict(family="Poppins, sans-serif", color="#2C3E50")
     )
     return fig
+
+
+create_department_chart = lambda df, dept_col: create_dimension_chart(df, dept_col, "Department")
 
 # ============================================================================
 # SIDEBAR CONTROLS
@@ -756,26 +801,34 @@ def sidebar_controls(df, asset_type, model_col, type_col):
         if selected_values:
             filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
 
-    expired_df = None
-    if expired_models and model_col:
-        expired_df = filtered_df[filtered_df[model_col].isin(expired_models)]
-
     if search_query:
         filtered_df = filtered_df[filtered_df.apply(
-            lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1
+            lambda row: row.astype(str).str.contains(search_query, case=False, regex=False, na=False).any(), axis=1
         )]
 
-    return filtered_df, expired_df
+    expired_df = filtered_df[
+        filtered_df["ITAM Lifecycle Status"].eq("Expired")
+    ].copy() if "ITAM Lifecycle Status" in filtered_df else pd.DataFrame(columns=filtered_df.columns)
+    selected_replacement_df = filtered_df[
+        filtered_df[model_col].isin(expired_models)
+    ].copy() if expired_models and model_col else pd.DataFrame(columns=filtered_df.columns)
+
+    return filtered_df, expired_df, selected_replacement_df
 
 # ============================================================================
 # FILE OPERATIONS
 # ============================================================================
 
 def export_to_excel(df, filename="asset_data.xlsx"):
-    """Export dataframe to Excel"""
+    """Export a sanitized copy so source text cannot become Excel formulas."""
+    export_df = df.copy()
+    for column in export_df.select_dtypes(include=["object", "string"]).columns:
+        export_df[column] = export_df[column].map(
+            lambda value: "'" + value if isinstance(value, str) and value.startswith(("=", "+", "-", "@")) else value
+        )
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Assets')
+        export_df.to_excel(writer, index=False, sheet_name='Assets')
     output.seek(0)
     return output
 
@@ -810,7 +863,7 @@ def create_sample_mobile_file():
     sample_data = {
         'Asset Tag': ['MB001', 'MB002', 'MB003', 'MB004', 'MB005'],
         'Product': ['iPhone 13 Pro', 'Samsung Galaxy S21', 'iPad Air', 'iPhone 12', 'Samsung Tab S8'],
-        'Product Type': ['Phone', 'Phone', 'Tablet', 'Phone', 'Tablet'],
+        'Product Type': ['IT Smartphones', 'IT Smartphones', 'IT Tablets', 'IT Smartphones', 'IT Tablets'],
         'Serial Number': ['SNM12345', 'SNM12346', 'SNM12347', 'SNM12348', 'SNM12349'],
         'User': ['John Doe', 'Jane Smith', 'Bob Wilson', 'Alice Brown', 'Charlie Davis'],
         'User Email': ['john.doe@company.com', 'jane.smith@company.com', 'bob.wilson@company.com', 'alice.brown@company.com', 'charlie.davis@company.com'],
@@ -953,13 +1006,25 @@ if uploaded_file is not None:
         # Detect header row
         uploaded_file.seek(0)
         header_row = detect_header_row(uploaded_file, selected_sheet)
+        if header_row is None:
+            st.warning(
+                "Automatic header detection could not find a confident company export header. "
+                "Enable Manual Header Row Selection and choose the table header row."
+            )
         
         st.sidebar.markdown("---")
         st.sidebar.markdown('<div class="sidebar-section">Header Settings</div>', unsafe_allow_html=True)
         use_manual = st.sidebar.checkbox("Manual Header Row Selection", value=False)
         if use_manual:
-            header_row = st.sidebar.number_input("Header Row (0-based)", min_value=0, max_value=20, value=header_row)
+            header_row = st.sidebar.number_input(
+                "Header Row (0-based)",
+                min_value=0,
+                max_value=20,
+                value=header_row if header_row is not None else 0,
+            )
             st.sidebar.success(f"Using row {header_row} as header")
+        elif header_row is None:
+            st.stop()
 
         # Load data
         uploaded_file.seek(0)
@@ -969,7 +1034,10 @@ if uploaded_file is not None:
         df = df.loc[:, ~df.columns.duplicated(keep='first')]
         
         # Detect asset type
-        asset_type = detect_asset_type(df.columns)
+        asset_type = detect_asset_type_from_data(df)
+        if asset_type == "Unknown":
+            st.error("Could not confidently detect this export. Expected 'Workstation Type' or Product Type values of 'IT Smartphones' or 'IT Tablets'.")
+            st.stop()
         st.sidebar.success(f"Detected: **{asset_type}** Assets")
         
         # Show columns
@@ -1001,7 +1069,7 @@ if uploaded_file is not None:
             show_validation_issues(issues)
 
         # Sidebar controls
-        df_filtered, df_expired = sidebar_controls(df, asset_type, model_col, type_col)
+        df_filtered, df_expired, df_selected_replacement = sidebar_controls(df, asset_type, model_col, type_col)
 
         # Export section
         st.sidebar.markdown("---")
@@ -1128,22 +1196,22 @@ if uploaded_file is not None:
         
         with col_chart2:
             dept_col = find_column(df_filtered, ["department", "user department"])
-            dept_fig = create_department_chart(df_filtered, dept_col)
+            dept_fig = create_dimension_chart(df_filtered, dept_col, "Department")
             if dept_fig:
                 st.plotly_chart(dept_fig, use_container_width=True)
             else:
                 st.info("Department data not available")
 
         location_col = find_column(df_filtered, ["location"])
-        loc_fig = create_department_chart(df_filtered, location_col)
+        loc_fig = create_dimension_chart(df_filtered, location_col, "Location")
         if loc_fig:
             st.plotly_chart(loc_fig, use_container_width=True)
 
         # Replacement Assets
-        if df_expired is not None and not df_expired.empty:
+        if not df_selected_replacement.empty:
             st.markdown("---")
-            st.markdown('<div class="section-header">Assets Marked for Replacement</div>', unsafe_allow_html=True)
-            st.dataframe(df_expired, use_container_width=True, hide_index=True)
+            st.markdown('<div class="section-header">Assets Selected for Replacement Review</div>', unsafe_allow_html=True)
+            st.dataframe(df_selected_replacement, use_container_width=True, hide_index=True)
 
         # Asset Details
         st.markdown("---")
