@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from html import escape
 
 from itam.data import apply_literal_search
 from itam.export import export_to_excel
@@ -132,8 +133,8 @@ def _metric_row(metrics):
                 )
             st.markdown(
                 f'<div class="al-kpi al-kpi-{accent}">'
-                f'<div class="al-kpi-label">{label}</div>'
-                f'<div class="al-kpi-value">{value}</div>'
+                f'<div class="al-kpi-label">{escape(str(label))}</div>'
+                f'<div class="al-kpi-value">{escape(str(value))}</div>'
                 "</div>",
                 unsafe_allow_html=True,
             )
@@ -279,11 +280,11 @@ def render_export_panel(df, scope_label, filename, key, default_preset="Standard
     )
     select_left, select_right = st.columns(2)
     with select_left:
-        if st.button("Select All", key=f"{key}-all", use_container_width=True):
+        if st.button("Select All", key=f"{key}-all", width="stretch"):
             st.session_state[columns_key] = list(available_display.columns)
             st.rerun()
     with select_right:
-        if st.button("Clear", key=f"{key}-clear", use_container_width=True):
+        if st.button("Clear", key=f"{key}-clear", width="stretch"):
             st.session_state[columns_key] = []
             st.rerun()
     selected_internal = [display_to_internal[label] for label in selected_display]
@@ -301,7 +302,7 @@ def render_export_panel(df, scope_label, filename, key, default_preset="Standard
         "Export Excel", export_to_excel(export_df), filename,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         key=f"{key}-download",
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -316,7 +317,7 @@ def _bar_chart(df, column, title, key):
         labels={"x": "Assets", "y": title.removeprefix("Top ")},
     )
     figure.update_layout(height=360, margin=dict(t=55, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, use_container_width=True, key=key)
+    st.plotly_chart(figure, width="stretch", key=key)
 
 
 def _lifecycle_metrics(df):
@@ -400,9 +401,9 @@ def render_asset_explorer(df, asset_type):
         "ITAM Lifecycle Status", "ITAM Review Required", "ITAM Highest Severity",
         "ITAM Audit Findings", "imei",
     ]
-    st.dataframe(_display_frame(filtered, default_columns), use_container_width=True, height=520, hide_index=True)
+    st.dataframe(_display_frame(filtered, default_columns), width="stretch", height=520, hide_index=True)
     with st.expander("Inspect all available fields", expanded=False):
-        st.dataframe(_display_frame(filtered), use_container_width=True, height=520, hide_index=True)
+        st.dataframe(_display_frame(filtered), width="stretch", height=520, hide_index=True)
     with st.expander("Export Data", expanded=False):
         render_export_panel(
             filtered, "Current Filtered Results",
@@ -438,7 +439,7 @@ def render_lifecycle_warranty(df, asset_type):
         subset = df[df["Warranty Status"].eq(status)] if title != "Expired Lifecycle" else df[df["ITAM Lifecycle Status"].eq("Expired")]
         if not subset.empty:
             with st.expander(f"{title} ({len(subset):,})", expanded=title == "Expiring Soon"):
-                st.dataframe(_display_frame(subset, ["asset_tag", "serial_number", "model", "user", "site", "purchase_year", "Asset Age", "ITAM Lifecycle Status", "Warranty Status"]), use_container_width=True, hide_index=True)
+                st.dataframe(_display_frame(subset, ["asset_tag", "serial_number", "model", "user", "site", "purchase_year", "Asset Age", "ITAM Lifecycle Status", "Warranty Status"]), width="stretch", hide_index=True)
 
 
 def render_data_audit(df, asset_type):
@@ -464,14 +465,14 @@ def render_data_audit(df, asset_type):
         if not counts.empty:
             figure = px.bar(x=counts.values, y=counts.index, orientation="h", labels={"x": "Assets", "y": title})
             figure.update_layout(height=height, margin=dict(t=15, b=20, l=10, r=10), showlegend=False)
-            st.plotly_chart(figure, use_container_width=True, key=key)
+            st.plotly_chart(figure, width="stretch", key=key)
 
     query = st.text_input("Search findings", placeholder="Asset Tag, Serial Number, Model, User, Site, IMEI, Audit Notes...", key="audit-search")
     with st.expander("Audit filters", expanded=False):
         clear_col, _ = st.columns([1, 5])
         with clear_col:
             st.write("")
-            st.button("Clear audit filters", key="audit-clear-filters", on_click=_clear_audit_filters, use_container_width=True)
+            st.button("Clear audit filters", key="audit-clear-filters", on_click=_clear_audit_filters, width="stretch")
         columns = st.columns(3)
         with columns[0]:
             severity = st.multiselect("Severity", _values(df, "ITAM Highest Severity"), key="audit-severity")
@@ -495,7 +496,7 @@ def render_data_audit(df, asset_type):
     if audited_df.empty:
         st.info("No audited assets match the current filters.")
     else:
-        st.dataframe(_display_frame(audited_df, audit_table_columns(audited_df)), use_container_width=True, height=520, hide_index=True)
+        st.dataframe(_display_frame(audited_df, audit_table_columns(audited_df)), width="stretch", height=520, hide_index=True)
     with st.expander("Export Data", expanded=False):
         render_export_panel(
             audited_df, "Current Audit Results",
@@ -519,7 +520,7 @@ def _planning_priority_chart(candidates):
     )
     figure.update_traces(textposition="outside")
     figure.update_layout(height=300, margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis=dict(categoryorder="array", categoryarray=order[::-1]))
-    st.plotly_chart(figure, use_container_width=True, key="replacement-planning-priority")
+    st.plotly_chart(figure, width="stretch", key="replacement-planning-priority")
 
 
 def _candidate_age_chart(candidates, key="replacement-candidate-age-profile", title=None):
@@ -542,7 +543,7 @@ def _candidate_age_chart(candidates, key="replacement-candidate-age-profile", ti
         category_orders={"x": age_labels},
     )
     figure.update_layout(height=320, margin=dict(t=35 if title else 20, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, use_container_width=True, key=key)
+    st.plotly_chart(figure, width="stretch", key=key)
 
 
 def _top_n_counts(series, top_n=10):
@@ -592,7 +593,7 @@ def _breakdown_bar_chart(df, column, title, key, top_n=10):
         labels={"x": "Replacement Candidates", "y": ""},
     )
     figure.update_layout(height=340, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, use_container_width=True, key=key)
+    st.plotly_chart(figure, width="stretch", key=key)
     return True
 
 
@@ -610,7 +611,7 @@ def _chronological_bar_chart(df, column, title, key):
         category_orders={"x": labels},
     )
     figure.update_layout(height=320, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, use_container_width=True, key=key)
+    st.plotly_chart(figure, width="stretch", key=key)
     return True
 
 
@@ -677,7 +678,7 @@ def render_replacement_planning(df, asset_type):
             st.write("")
             st.button(
                 "Clear planning filters", key="replacement-clear-filters",
-                use_container_width=True, on_click=_clear_replacement_planning_filters,
+                width="stretch", on_click=_clear_replacement_planning_filters,
             )
         selections = {}
         columns = st.columns(3)
@@ -732,7 +733,7 @@ def render_replacement_planning(df, asset_type):
         st.info("No replacement candidates match the current filters.")
     else:
         detail_columns = _meaningful_optional_columns(df, CANDIDATE_DETAIL_COLUMNS, CANDIDATE_DETAIL_OPTIONAL_COLUMNS)
-        st.dataframe(_display_frame(segmented, detail_columns), use_container_width=True, height=520, hide_index=True)
+        st.dataframe(_display_frame(segmented, detail_columns), width="stretch", height=520, hide_index=True)
     with st.expander("Export Data", expanded=False):
         render_export_panel(
             segmented, "Current Replacement Candidates",

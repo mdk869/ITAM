@@ -1,231 +1,149 @@
-# ITAM - IT Asset Management Dashboard System
+# AssetLens
+IT Asset Audit & Lifecycle Intelligence
 
-<div align="center">
+## Purpose
 
-![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-green.svg)
-![Streamlit](https://img.shields.io/badge/streamlit-1.28+-red.svg)
-![License](https://img.shields.io/badge/license-MIT-yellow.svg)
+AssetLens is a read-only audit, analysis, and replacement-planning tool for official company asset exports. It processes uploaded Excel files in memory and adds lifecycle, warranty, data-quality, and planning analysis without changing source records.
 
-**Professional Asset Tracking & Analytics Platform**
+The official company inventory system remains the authoritative source.
 
-[Features](#-features) • [Installation](#-installation) • [Quick Start](#-quick-start) • [Usage](#-usage) • [Contact](#-contact)
+## Core Workflow
 
-</div>
+Official Inventory
+→ Export
+→ AssetLens
+→ Audit / Analysis
+→ Findings
+→ Replacement Planning
+→ Cross-check main system
 
----
+## Current Features
 
-## 📋 Overview
+- Overview
+- Asset Explorer
+- Lifecycle & Warranty
+- Data Audit
+- Replacement Planning
+- Excel export
 
-**ITAM (IT Asset Management Dashboard System)** adalah platform web-based yang komprehensif untuk pengurusan aset IT organisasi. Sistem ini dibangunkan menggunakan Python Streamlit untuk menyediakan antara muka yang intuitif dan powerful analytics untuk menguruskan inventori aset IT.
+## Supported Datasets
 
-### Objektif Sistem
+AssetLens supports these official export types:
 
-- **Centralized Management** - Satu platform untuk menguruskan semua aset IT (Workstation & Mobile)
-- **Real-time Analytics** - Dashboard interaktif dengan visualisasi data yang bermakna
-- **Warranty Tracking** - Automated monitoring dan alerts untuk warranty expiry
-- **Lifecycle Planning** - Asset age analysis untuk replacement planning
-- **Data Validation** - Auto-detect duplicates, missing data, dan anomalies
-- **Flexible Reporting** - Multi-format exports untuk procurement dan audit purposes
+- Workstation
+- Smartphone
+- Tablet
 
----
+The app scans the first rows of the selected worksheet for a recognizable header. It detects the asset type from the export-specific type columns and maps source fields into a consistent internal schema while preserving the source columns for analysis and export.
 
-## ✨ Features
+## Lifecycle Rules
 
-### 🎯 Core Capabilities
+- 0–1 years: New
+- 2–3 years: Active
+- 4–5 years: Aging
+- More than 5 years: Expired
+- Invalid or missing purchase year: Unknown
 
-**Smart Detection**
-- Auto-detect asset type (Workstation/Mobile) dari column names
-- Intelligent header row detection dalam Excel files
-- Flexible column matching walaupun ada typo atau format berbeza
+## Warranty Rules
 
-**Comprehensive Dashboard**
-- Summary metrics: Total assets, active/expired breakdown, replacement rate
-- Asset type statistics dan regional distribution
-- Interactive visual analytics (pie charts, bar charts)
-- Real-time filtering dan search capabilities
+- Expiry before today: Expired
+- 0–90 days remaining: Expiring Soon
+- More than 90 days remaining: Active
+- Missing or invalid expiry: Unknown
 
-**Warranty Management** (Workstation)
-- Three-tier status: Active, Expiring Soon (90 days), Expired
-- Automated expiry calculations
-- Exportable lists untuk procurement planning
+## Data Audit
 
-**Asset Lifecycle Analysis**
-- Age categorization: New (0-1yr), Active (1-3yr), Aging (3-5yr), Old (5+yr)
-- Average age calculations
-- Replacement planning tools
+The audit identifies duplicate Asset Tag, duplicate Serial, duplicate IMEI for mobile assets, missing core identity, and lifecycle/source-state mismatches. Findings receive a severity, and identity or state issues are marked Review Required.
 
-**Data Quality Assurance**
-- Duplicate detection (Asset tags, Serial numbers)
-- Missing data identification
-- Email format validation
-- Severity-based prioritization (High, Medium, Low)
+AssetLens does not modify source records.
 
-**Advanced Filtering**
-- Multi-level filters: Model, Type, Site, Location, Department, Status
-- Global text search across all fields
-- Session state management
+## Replacement Planning
 
-**Export & Reporting**
-- Excel export untuk filtered data
-- Segmented exports: All, Expired assets, Expired warranties
-- Auto-generated filenames dengan timestamps
-- Sample template downloads
+Assets with lifecycle status Expired are marked Replacement Candidate.
 
-**Professional UI/UX**
-- Modern responsive design
-- Bilingual support (English & Bahasa Malaysia)
-- Interactive hover effects dan animations
-- Mobile-friendly interface
+Planning priority is classified as:
 
----
+- Priority Review
+- Standard Planning
+- Low Operational Priority
 
-## 💻 System Requirements
+Replacement Candidate does not mean automatic replacement approval. It is an analysis and planning signal for follow-up against the authoritative inventory system and organizational process.
 
-- **Python**: 3.8 or higher
-- **Operating System**: Windows, macOS, Linux
-- **RAM**: 4GB minimum (8GB recommended)
-- **Browser**: Chrome, Firefox, Safari, Edge (latest versions)
+## Architecture
 
----
+```text
+asset_dashboard.py
+→ bootstrap/upload/orchestration
 
-## 🚀 Installation
+itam/data.py
+→ detection/canonicalization/search
 
-### 1. Clone Repository
-```bash
-git clone https://github.com/mdk869/ITAM.git
-cd ITAM
+itam/audit.py
+→ lifecycle/warranty/audit/planning
+
+itam/export.py
+→ Excel export/sanitization
+
+itam/ui.py
+→ AssetLens pages/UI
 ```
 
-### 2. Install Dependencies
+## Installation
+
+```bash
+python -m venv .venv
+```
+
+Windows:
+
+```powershell
+.venv\Scripts\activate
+```
+
 ```bash
 pip install -r requirements.txt
-```
-
-### 3. Run Application
-```bash
 streamlit run asset_dashboard.py
 ```
 
-### 4. Access Dashboard
-Open browser dan navigate ke `http://localhost:8501`
+## Testing
 
----
+```bash
+python -m unittest discover -p "test_*.py"
+python -m py_compile asset_dashboard.py itam/data.py itam/audit.py itam/export.py itam/ui.py
+```
 
-## ⚡ Quick Start
+## Deployment
 
-1. **Launch** aplikasi menggunakan command di atas
-2. **Select Language** - Choose English atau Bahasa Malaysia
-3. **Upload Excel File** - Klik "Upload Excel File (.xlsx)" button
-4. **Explore Dashboard** - View metrics, apply filters, analyze data
-5. **Export Reports** - Download filtered data dalam Excel format
+Deploy from GitHub to Streamlit Community Cloud. The production entry point is `asset_dashboard.py`.
 
-### Sample Templates
+Do not place credentials or secrets in the repository or upload them through the application.
 
-Download sample Excel templates untuk reference:
-- **Workstation Template** - Includes all standard columns untuk PC/Laptop assets
-- **Mobile Template** - Template untuk phones dan tablets
+## Security
 
-Kedua-dua templates tersedia dalam aplikasi.
+- Search is literal and non-regex.
+- User-controlled values are HTML-escaped at presentation boundaries.
+- Excel formula-injection protection is applied during export.
+- The source workflow is read-only.
+- AssetLens itself does not persist uploaded datasets.
 
----
+## Limitations
 
-## 📖 Usage
+- Upload-based rather than a live API integration
+- In-memory processing
+- Audit quality depends on source data quality
+- No database, authentication, or workflow engine
+- No automatic source-system update
+- No procurement approval workflow
 
-### Supported Asset Types
+## Maintenance
 
-**1. Workstation Assets (PC/Laptop)**
-- Required: `Model`, `Asset Tag`, `Serial Number`, `User`
-- Optional: `Workstation Type`, `Warranty Expiry`, `Year Of Purchase`, `Place`, `Location`, `Department`, `State`, `User Email`
+Use this change sequence:
 
-**2. Mobile Assets (Phone/Tablet)**
-- Required: `Product`, `Asset Tag`, `Serial Number`, `User`
-- Optional: `Product Type`, `Programme`, `Site`, `Year Of Purchase`, `Location`, `Department`, `State`, `User Email`
-
-### Excel File Format
-
-- **File Type**: `.xlsx` (Excel 2007 or later)
-- **Structure**: Header row followed by data rows
-- **No Restrictions**: Remove password protection dan file permissions
-- **Column Names**: Flexible - sistem will auto-detect variations
-
-### Key Functions
-
-**Dashboard Views:**
-- Summary metrics cards
-- Asset type distribution
-- Warranty status tracking (Workstation)
-- Age analysis dan lifecycle planning
-- Regional/departmental breakdowns
-- Visual analytics charts
-
-**Filtering Options:**
-- Filter by Model/Product
-- Filter by Type, Site, Location, Department
-- Filter by Status (Workstation) atau Programme (Mobile)
-- Global text search
-
-**Export Options:**
-- Export all filtered data
-- Export marked for replacement
-- Export expired warranties (Workstation only)
-
----
-
-## 🔒 Data Security
-
-- **No Server Storage** - Data tidak disimpan di server
-- **In-Memory Processing** - Semua pemprosesan dalam session memory
-- **Session-Based** - Data cleared bila browser closed
-- **Private & Secure** - Data remains completely confidential
-
----
-
-## 🛠️ Tech Stack
-
-- **Framework**: Streamlit 1.28+
-- **Data Processing**: Pandas 2.0+
-- **Excel Handling**: OpenPyXL 3.1+
-- **Visualization**: Plotly 5.17+
-
----
-
-## 📞 Contact & Support
-
-**Developer**: MKAR  
-**Email**: khalis.abdrahim@gmail.com  
-**GitHub**: [@mdk869](https://github.com/mdk869)
-
-**Response Time:**
-- Mon-Fri: Within 24 hours
-- Weekend: Within 48 hours
-
-**Issues & Bug Reports**: [Create an Issue](https://github.com/mdk869/ITAM/issues)
-
----
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [Streamlit](https://streamlit.io/) - Web framework
-- [Pandas](https://pandas.pydata.org/) - Data manipulation
-- [Plotly](https://plotly.com/) - Interactive visualizations
-- [OpenPyXL](https://openpyxl.readthedocs.io/) - Excel processing
-
----
-
-<div align="center">
-
-**Made with ❤️ by MKAR**
-
-© 2025 MKAR. All rights reserved.
-
-[Report Bug](https://github.com/mdk869/ITAM/issues) · [Request Feature](https://github.com/mdk869/ITAM/issues)
-
-</div>
+```text
+change
+→ tests
+→ compile
+→ local Streamlit smoke
+→ commit/push
+→ Streamlit Cloud smoke test
+```

@@ -158,6 +158,10 @@ class LifecycleAndWarrantyTests(unittest.TestCase):
         result, _ = get_warranty_status(pd.DataFrame({"warranty_expiry": values}))
         self.assertEqual(result["Warranty Status"].tolist(), ["Expired", "Expiring Soon", "Expiring Soon", "Active", "Unknown", "Unknown"])
 
+    def test_warranty_missing_date_is_unknown(self):
+        result, _ = get_warranty_status(pd.DataFrame({"warranty_expiry": [pd.NA]}))
+        self.assertEqual(result.loc[0, "Warranty Status"], "Unknown")
+
 
 class SearchExportAndEscapingTests(unittest.TestCase):
     def test_search_is_literal_and_case_insensitive(self):
