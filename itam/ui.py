@@ -535,6 +535,121 @@ def _clear_overview_filters():
         st.session_state[f"overview-{column}"] = []
 
 
+def _overview_missing_count(df, column):
+    """Return the number of null or blank values in an Overview column."""
+    if column not in df.columns:
+        return 0
+    values = df[column].astype("string")
+    return int(values.isna().sum() + values.str.strip().eq("").sum())
+
+
+def _display_group_value(value):
+    """Map missing organisational values to a presentation-only group label."""
+    if pd.isna(value):
+        return "Not Assigned"
+    text = str(value).strip()
+    return text if text else "Not Assigned"
+
+
+def _overview_distribution(df, column, top_n=None):
+    """Return a blank-free categorical summary with counts and percentages."""
+    summary_columns = ["Category", "Units", "% of Assets"]
+    if column not in df.columns:
+        return pd.DataFrame(columns=summary_columns)
+    values = df[column].dropna().astype(str).str.strip()
+    values = values[values.ne("")]
+    if values.empty:
+        return pd.DataFrame(columns=summary_columns)
+    counts = values.value_counts()
+    if top_n is not None:
+        counts = counts.head(top_n)
+    return pd.DataFrame({
+        "Category": counts.index,
+        "Units": counts.values,
+        "% of Assets": (counts.values / len(df) * 100).round(1),
+    })
+
+
+def _overview_composition_summary(df, asset_type):
+    """Summarize source subtype for Workstations and model for mobile assets."""
+    column = "source_asset_subtype" if asset_type == "Workstation" else "model"
+    return _overview_distribution(df, column)
+
+
+def _overview_model_summary(df, top_n=10):
+    """Return the leading models in the current Overview context."""
+    return _overview_distribution(df, "model", top_n=top_n)
+
+
+def _overview_assignment_summary(df):
+    """Return exact source assignment categories without recoding values."""
+    return _overview_distribution(df, "workstation_status")
+
+
+def _overview_group_summary(df, group_column, asset_type):
+    """Aggregate operational metrics by one level of the Place hierarchy."""
+    columns = [group_column.title(), "Total", "Review", "Replacement"]
+    if group_column not in df.columns:
+        return pd.DataFrame(columns=columns)
+    data = df.copy()
+    if data.empty:
+        return pd.DataFrame(columns=columns)
+    data[group_column] = data[group_column].map(_display_group_value)
+    data["_overview_review"] = data["ITAM Review Required"].eq(True)
+    data["_overview_replacement"] = data["ITAM Replacement Candidate"].eq(True)
+    grouped = data.groupby(group_column, dropna=False).agg(
+        Total=(group_column, "size"),
+        Review=("_overview_review", "sum"),
+        Replacement=("_overview_replacement", "sum"),
+    )
+    if asset_type == "Workstation" and "workstation_status" in data.columns:
+        statuses = data["workstation_status"].astype("string").fillna("").str.strip()
+        for status in ["Personal", "Pool", "Counter"]:
+            data[f"_overview_{status.lower()}"] = statuses.eq(status)
+            grouped[status] = data.groupby(group_column)[f"_overview_{status.lower()}"].sum()
+        grouped = grouped[["Total", "Personal", "Pool", "Counter", "Review", "Replacement"]]
+    return grouped.reset_index().rename(columns={group_column: group_column.title()}).sort_values(
+        "Total", ascending=False, kind="stable"
+    ).reset_index(drop=True)
+
+
+def _overview_place_summary(df, asset_type):
+    """Return the compact Place Intelligence summary table."""
+    return _overview_group_summary(df, "place", asset_type)
+
+
+def _overview_place_subset(df, place):
+    """Return a local Place drill-down subset without changing global filters."""
+    if "place" not in df.columns or not place:
+        return df.iloc[0:0].copy()
+    display_values = df["place"].map(_display_group_value)
+    return df.loc[display_values.eq(str(place))].copy()
+
+
+def _overview_local_place_selection(selected_place, place_options):
+    """Keep a local Place selection only while it remains in the filtered context."""
+    return selected_place if selected_place in place_options else "Select a Place"
+
+
+def _render_overview_distribution(summary, title, key):
+    """Render a compact themed distribution chart from an Overview summary."""
+    if summary.empty:
+        st.info(f"No {title.casefold()} values are available in the current context.")
+        return
+    chart_data = summary.sort_values("Units")
+    figure = px.bar(
+        chart_data, x="Units", y="Category", orientation="h", text="Units",
+        title=title, custom_data=["% of Assets"],
+        labels={"Category": "", "Units": "Assets"},
+    )
+    figure.update_traces(
+        textposition="outside", cliponaxis=False,
+        hovertemplate="%{y}<br>Units: %{x:,}<br>Share: %{customdata[0]}%<extra></extra>",
+    )
+    figure.update_layout(height=300, margin=dict(t=45, b=20, l=10, r=35), showlegend=False)
+    st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
+
+
 def render_overview(df, asset_type):
     st.title("Overview")
     st.caption(f"Complete view of your IT asset inventory, lifecycle, audit status and replacement outlook.")
@@ -655,6 +770,88 @@ def render_overview(df, asset_type):
         ("Review Required", review_required),
         ("Replacement Candidates", replacement_candidates),
     ])
+
+    st.markdown("### Asset Composition & Model Intelligence")
+    composition_col, model_col = st.columns(2)
+    composition_column = "source_asset_subtype" if asset_type == "Workstation" else "model"
+    composition_label = "Asset Subtype" if asset_type == "Workstation" else "Model"
+    composition_summary = _overview_composition_summary(overview_df, asset_type)
+    with composition_col:
+        _render_overview_distribution(composition_summary, "Asset Composition", "overview-composition")
+        missing_composition = _overview_missing_count(overview_df, composition_column)
+        if missing_composition:
+            st.caption(f"{missing_composition:,} assets with blank {composition_label.casefold()} values are omitted.")
+    with model_col:
+        st.markdown("#### Leading Models")
+        model_summary = _overview_model_summary(overview_df, top_n=10).rename(columns={"Category": "Model"})
+        if model_summary.empty:
+            st.info("No model values are available in the current context.")
+        else:
+            st.dataframe(model_summary, width="stretch", height=300, hide_index=True)
+        missing_models = _overview_missing_count(overview_df, "model")
+        if missing_models:
+            st.caption(f"{missing_models:,} assets with blank model values are omitted.")
+
+    if asset_type == "Workstation":
+        st.markdown("### Assignment Intelligence")
+        assignment_summary = _overview_assignment_summary(overview_df).rename(columns={"Category": "Assignment Type"})
+        if assignment_summary.empty:
+            st.info("Assignment Type is not available for the current context.")
+        else:
+            st.dataframe(assignment_summary, width="stretch", hide_index=True)
+        missing_assignments = _overview_missing_count(overview_df, "workstation_status")
+        if missing_assignments:
+            st.caption(f"{missing_assignments:,} assets with blank Assignment Type values are omitted.")
+
+    st.markdown("### Place Intelligence")
+    place_summary = _overview_place_summary(overview_df, asset_type)
+    if place_summary.empty:
+        st.info("No Place values are available in the current context.")
+        return
+    st.dataframe(place_summary, width="stretch", hide_index=True)
+
+    place_key = "overview-place-drilldown"
+    place_options = place_summary["Place"].tolist()
+    current_place = st.session_state.get(place_key)
+    sanitized_place = _overview_local_place_selection(current_place, place_options)
+    if current_place is not None and sanitized_place != current_place:
+        st.session_state[place_key] = sanitized_place
+    selected_place = st.selectbox(
+        "Place detail", ["Select a Place", *place_options],
+        key=place_key,
+    )
+    if selected_place == "Select a Place":
+        return
+
+    selected_place_df = _overview_place_subset(overview_df, selected_place)
+    place_metrics = [
+        ("Total Assets", len(selected_place_df)),
+        ("Review Required", int(selected_place_df["ITAM Review Required"].eq(True).sum())),
+        ("Replacement Candidates", int(selected_place_df["ITAM Replacement Candidate"].eq(True).sum())),
+    ]
+    if asset_type == "Workstation":
+        statuses = selected_place_df["workstation_status"].astype("string").fillna("").str.strip()
+        place_metrics[1:1] = [
+            ("Personal", int(statuses.eq("Personal").sum())),
+            ("Pool", int(statuses.eq("Pool").sum())),
+            ("Counter", int(statuses.eq("Counter").sum())),
+        ]
+    st.markdown(f"#### {selected_place}")
+    _metric_row(place_metrics)
+
+    site_summary = _overview_group_summary(selected_place_df, "site", asset_type)
+    st.markdown("#### Site Breakdown")
+    if site_summary.empty:
+        st.info("No Site values are available for the selected Place.")
+        return
+    st.dataframe(site_summary, width="stretch", hide_index=True)
+
+    location_summary = _overview_group_summary(selected_place_df, "location", asset_type)
+    st.markdown("#### Location Breakdown")
+    if location_summary.empty:
+        st.info("No Location values are available for the selected Place.")
+    else:
+        st.dataframe(location_summary, width="stretch", hide_index=True)
 
 
 def _explorer_filters(df):

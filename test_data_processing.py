@@ -30,8 +30,17 @@ from itam.ui import (
     _clear_replacement_planning_filters,
     _overview_filter_columns,
     _apply_overview_filters,
+    _overview_assignment_summary,
+    _overview_composition_summary,
+    _display_group_value,
     _format_context_indicator,
+    _overview_group_summary,
     _get_selected_filters,
+    _overview_missing_count,
+    _overview_model_summary,
+    _overview_local_place_selection,
+    _overview_place_subset,
+    _overview_place_summary,
     add_finding_categories,
     audit_table_columns,
     clean_asset_count,
@@ -775,6 +784,116 @@ class OverviewFilterTests(unittest.TestCase):
         self.assertNotIn("site", selected)
         self.assertEqual(selected["place"], ["HQ", "Branch"])
         self.assertEqual(selected["department"], ["IT"])
+
+
+class OverviewIntelligenceTests(unittest.TestCase):
+    """Test pure Slice 2C-2 Overview aggregation helpers."""
+
+    def workstation_df(self):
+        return pd.DataFrame({
+            "source_asset_subtype": ["Laptop", "Desktop", "Laptop", ""],
+            "model": ["Dell", "HP", "Dell", None],
+            "workstation_status": ["Personal", "Pool", "Counter", "Not Assigned"],
+            "place": ["HQ", "HQ", "Branch", "Branch"],
+            "site": ["Site 1", "Site 1", "Site 2", None],
+            "location": ["Floor 1", "Floor 2", "Floor 1", "Floor 2"],
+            "ITAM Review Required": [True, False, True, False],
+            "ITAM Replacement Candidate": [False, True, True, False],
+        })
+
+    def test_workstation_composition_uses_source_asset_subtype(self):
+        summary = _overview_composition_summary(self.workstation_df(), "Workstation")
+        self.assertEqual(summary.to_dict("records"), [
+            {"Category": "Laptop", "Units": 2, "% of Assets": 50.0},
+            {"Category": "Desktop", "Units": 1, "% of Assets": 25.0},
+        ])
+
+    def test_model_summary_limits_and_percentages(self):
+        summary = _overview_model_summary(self.workstation_df(), top_n=1)
+        self.assertEqual(summary.to_dict("records"), [
+            {"Category": "Dell", "Units": 2, "% of Assets": 50.0},
+        ])
+
+    def test_assignment_summary_preserves_actual_source_categories(self):
+        summary = _overview_assignment_summary(self.workstation_df())
+        self.assertEqual(set(summary["Category"]), {"Personal", "Pool", "Counter", "Not Assigned"})
+        self.assertEqual(int(summary.loc[summary["Category"] == "Pool", "Units"].iloc[0]), 1)
+
+    def test_workstation_place_summary_includes_assignment_counts(self):
+        summary = _overview_place_summary(self.workstation_df(), "Workstation")
+        self.assertEqual(list(summary.columns), ["Place", "Total", "Personal", "Pool", "Counter", "Review", "Replacement"])
+        hq = summary.loc[summary["Place"] == "HQ"].iloc[0]
+        self.assertEqual(hq[["Total", "Personal", "Pool", "Counter", "Review", "Replacement"]].tolist(), [2, 1, 1, 0, 1, 1])
+
+    def test_mobile_place_summary_omits_assignment_columns(self):
+        summary = _overview_place_summary(self.workstation_df(), "Smartphone")
+        self.assertEqual(list(summary.columns), ["Place", "Total", "Review", "Replacement"])
+
+    def test_selected_place_drives_site_and_location_breakdowns(self):
+        subset = _overview_place_subset(self.workstation_df(), "HQ")
+        site_summary = _overview_group_summary(subset, "site", "Workstation")
+        location_summary = _overview_group_summary(subset, "location", "Workstation")
+        self.assertEqual(len(subset), 2)
+        self.assertEqual(site_summary.to_dict("records"), [{
+            "Site": "Site 1", "Total": 2, "Personal": 1, "Pool": 1,
+            "Counter": 0, "Review": 1, "Replacement": 1,
+        }])
+        self.assertEqual(location_summary["Total"].sum(), 2)
+        self.assertEqual(set(location_summary["Location"]), {"Floor 1", "Floor 2"})
+
+    def test_local_place_selection_defaults_to_placeholder_and_resets_stale_values(self):
+        options = ["HQ", "Branch"]
+        self.assertEqual(_overview_local_place_selection(None, options), "Select a Place")
+        self.assertEqual(_overview_local_place_selection("Retired Place", options), "Select a Place")
+        self.assertEqual(_overview_local_place_selection("HQ", options), "HQ")
+
+    def test_filtered_context_constrains_local_place_options(self):
+        filtered_df = self.workstation_df().loc[lambda frame: frame["place"].eq("HQ")]
+        options = _overview_place_summary(filtered_df, "Workstation")["Place"].tolist()
+        self.assertEqual(options, ["HQ"])
+        self.assertEqual(_overview_local_place_selection("Branch", options), "Select a Place")
+
+    def test_display_group_value_maps_blank_values_to_not_assigned(self):
+        for value in [None, pd.NA, float("nan"), "", "   "]:
+            self.assertEqual(_display_group_value(value), "Not Assigned")
+        self.assertEqual(_display_group_value("HQ"), "HQ")
+
+    def test_blank_and_literal_not_assigned_values_reconcile_in_one_group(self):
+        df = self.workstation_df().copy()
+        df.loc[0, "place"] = None
+        df.loc[1, "site"] = " "
+        df.loc[2, "location"] = None
+        df.loc[3, "place"] = "Not Assigned"
+        for column in ["place", "site", "location"]:
+            summary = _overview_group_summary(df, column, "Workstation")
+            self.assertEqual(int(summary["Total"].sum()), len(df))
+        place_summary = _overview_place_summary(df, "Workstation")
+        not_assigned = place_summary.loc[place_summary["Place"] == "Not Assigned", "Total"].iloc[0]
+        self.assertEqual(int(not_assigned), 2)
+        self.assertEqual(len(_overview_place_subset(df, "Not Assigned")), 2)
+
+    def test_mobile_grouping_totals_and_operational_metrics_reconcile(self):
+        df = self.workstation_df().drop(columns=["workstation_status"])
+        df.loc[0, "site"] = None
+        df.loc[1, "location"] = ""
+        summary = _overview_group_summary(df, "site", "Smartphone")
+        self.assertEqual(list(summary.columns), ["Site", "Total", "Review", "Replacement"])
+        self.assertEqual(int(summary["Total"].sum()), len(df))
+        self.assertEqual(int(summary["Review"].sum()), int(df["ITAM Review Required"].sum()))
+        self.assertEqual(int(summary["Replacement"].sum()), int(df["ITAM Replacement Candidate"].sum()))
+
+    def test_missing_values_are_omitted_from_non_organisational_summaries(self):
+        df = self.workstation_df()
+        self.assertEqual(_overview_missing_count(df, "model"), 1)
+        self.assertEqual(_overview_missing_count(df, "site"), 1)
+        self.assertNotIn("Unknown", _overview_model_summary(df)["Category"].tolist())
+        self.assertNotIn("", _overview_composition_summary(df, "Workstation")["Category"].tolist())
+
+    def test_filtered_subset_drives_all_aggregations(self):
+        pool_df = self.workstation_df().loc[lambda frame: frame["workstation_status"].eq("Pool")]
+        self.assertEqual(int(_overview_composition_summary(pool_df, "Workstation")["Units"].sum()), 1)
+        self.assertEqual(int(_overview_place_summary(pool_df, "Workstation")["Total"].sum()), 1)
+        self.assertEqual(int(_overview_assignment_summary(pool_df)["Units"].sum()), 1)
 
 
 if __name__ == "__main__":
