@@ -445,39 +445,216 @@ def _lifecycle_metrics(df):
     _metric_row([(label, int(df["ITAM Lifecycle Status"].eq(value).sum())) for label, value in labels])
 
 
+# ============================================================================
+# OVERVIEW FILTERS (Slice 2C-1)
+# ============================================================================
+
+def _overview_filter_columns(asset_type):
+    """Return list of (column, display_label) tuples for this asset_type."""
+    # All datasets have these
+    base_filters = [
+        ("place", "Place"),
+        ("site", "Site"),
+        ("location", "Location"),
+        ("department", "Department"),
+    ]
+    # Workstation-only filters
+    if asset_type == "Workstation":
+        return [
+            ("source_asset_subtype", "Asset Subtype"),
+            ("workstation_status", "Assignment Type"),
+        ] + base_filters
+    # Smartphone and Tablet: no Workstation-only filters
+    return base_filters
+
+
+def _init_overview_filters(asset_type):
+    """Ensure all Overview filter session state keys exist."""
+    for column, _ in _overview_filter_columns(asset_type):
+        key = f"overview-{column}"
+        if key not in st.session_state:
+            st.session_state[key] = []
+
+
+def _apply_overview_filters(df, asset_type):
+    """Apply filters from session state and return filtered copy."""
+    filtered = df.copy()
+    for column, _ in _overview_filter_columns(asset_type):
+        key = f"overview-{column}"
+        selected = st.session_state.get(key, [])
+        if selected and column in filtered.columns:
+            filtered = filtered[filtered[column].astype(str).isin(selected)]
+    return filtered
+
+
+def _get_selected_filters(asset_type):
+    """Get dict of {column: [selected_values]} for display purposes."""
+    result = {}
+    for column, _ in _overview_filter_columns(asset_type):
+        key = f"overview-{column}"
+        selected = st.session_state.get(key, [])
+        if selected:
+            result[column] = selected
+    return result
+
+
+def _format_context_indicator(total_unfiltered, filtered_df, selected_filters, asset_type):
+    """Return concise context string e.g. 'Viewing: Pool • Kuala Selangor Region • 200 of 6,423 assets'."""
+    filtered_count = len(filtered_df)
+    if filtered_count == total_unfiltered and not selected_filters:
+        return f"Viewing all {total_unfiltered:,} assets"
+    
+    # Build filter summary with user-friendly labels
+    filter_parts = []
+    label_map = {
+        "source_asset_subtype": "Asset Subtype",
+        "workstation_status": "Assignment Type",
+        "place": "Place",
+        "site": "Site",
+        "location": "Location",
+        "department": "Department",
+    }
+    for column, values in selected_filters.items():
+        if values:
+            label = label_map.get(column, column)
+            # Show first value or count of multiple
+            if len(values) == 1:
+                filter_parts.append(str(values[0]))
+            else:
+                filter_parts.append(f"{label} ({len(values)})")
+    
+    filter_summary = " • ".join(filter_parts) if filter_parts else ""
+    if filter_summary:
+        return f"Viewing: {filter_summary} • {filtered_count:,} of {total_unfiltered:,} assets"
+    return f"Viewing {filtered_count:,} of {total_unfiltered:,} assets"
+
+
+def _clear_overview_filters():
+    """Reset all Overview filter widget state."""
+    for column, _ in _overview_filter_columns(st.session_state.get("_overview_asset_type", "Workstation")):
+        st.session_state[f"overview-{column}"] = []
+
+
 def render_overview(df, asset_type):
     st.title("Overview")
-    st.caption(f"Management summary for {asset_type} assets")
-    total = len(df)
-    expired = int(df["ITAM Replacement Candidate"].sum())
-    within = int(df["Asset Age"].between(0, 5).sum())
+    st.caption(f"Complete view of your IT asset inventory, lifecycle, audit status and replacement outlook.")
+    
+    # Track asset type for clear filters callback
+    st.session_state["_overview_asset_type"] = asset_type
+    
+    # ========================================================================
+    # GLOBAL CONTEXT FILTERS
+    # ========================================================================
+    total_unfiltered = len(df)
+    filter_columns = _overview_filter_columns(asset_type)
+    
+    # Build filter context: apply upstream filters to determine downstream options
+    # and sanitize stale selections BEFORE widget instantiation
+    filter_context = df.copy()
+    
+    # Render section header with Clear Filters as secondary action
+    header_cols = st.columns([1, 0.15], gap="large")
+    with header_cols[0]:
+        st.markdown("### Analysis Context")
+    with header_cols[1]:
+        st.button("Clear Filters", key="overview-clear-filters", on_click=_clear_overview_filters)
+    
+    # Render filters in balanced rows based on asset type
+    if asset_type == "Workstation":
+        # Workstation: 6 filters in 2 rows of 3
+        # Row 1: Asset Subtype | Assignment Type | Place
+        row1_cols = st.columns(3)
+        row1_filters = filter_columns[:3]
+        for col_idx, (column, label) in enumerate(row1_filters):
+            with row1_cols[col_idx]:
+                available_values = _values(filter_context, column) if column in filter_context.columns else []
+                available_values_set = set(available_values)
+                current_selection = st.session_state.get(f"overview-{column}", [])
+                sanitized_selection = [v for v in current_selection if v in available_values_set]
+                if sanitized_selection != current_selection:
+                    st.session_state[f"overview-{column}"] = sanitized_selection
+                st.multiselect(
+                    label, available_values,
+                    default=sanitized_selection,
+                    key=f"overview-{column}",
+                )
+                selected = st.session_state.get(f"overview-{column}", [])
+                if selected and column in filter_context.columns:
+                    filter_context = filter_context[filter_context[column].astype(str).isin(selected)]
+        
+        # Row 2: Site | Location | Department
+        row2_cols = st.columns(3)
+        row2_filters = filter_columns[3:]
+        for col_idx, (column, label) in enumerate(row2_filters):
+            with row2_cols[col_idx]:
+                available_values = _values(filter_context, column) if column in filter_context.columns else []
+                available_values_set = set(available_values)
+                current_selection = st.session_state.get(f"overview-{column}", [])
+                sanitized_selection = [v for v in current_selection if v in available_values_set]
+                if sanitized_selection != current_selection:
+                    st.session_state[f"overview-{column}"] = sanitized_selection
+                st.multiselect(
+                    label, available_values,
+                    default=sanitized_selection,
+                    key=f"overview-{column}",
+                )
+                selected = st.session_state.get(f"overview-{column}", [])
+                if selected and column in filter_context.columns:
+                    filter_context = filter_context[filter_context[column].astype(str).isin(selected)]
+    else:
+        # Smartphone/Tablet: 4 filters in 1 balanced row
+        filter_cols = st.columns(4)
+        for col_idx, (column, label) in enumerate(filter_columns):
+            with filter_cols[col_idx]:
+                available_values = _values(filter_context, column) if column in filter_context.columns else []
+                available_values_set = set(available_values)
+                current_selection = st.session_state.get(f"overview-{column}", [])
+                sanitized_selection = [v for v in current_selection if v in available_values_set]
+                if sanitized_selection != current_selection:
+                    st.session_state[f"overview-{column}"] = sanitized_selection
+                st.multiselect(
+                    label, available_values,
+                    default=sanitized_selection,
+                    key=f"overview-{column}",
+                )
+                selected = st.session_state.get(f"overview-{column}", [])
+                if selected and column in filter_context.columns:
+                    filter_context = filter_context[filter_context[column].astype(str).isin(selected)]
+    
+    # ========================================================================
+    # APPLY FILTERS TO GET OVERVIEW DATAFRAME
+    # ========================================================================
+    overview_df = _apply_overview_filters(df, asset_type)
+    selected_filters = _get_selected_filters(asset_type)
+    
+    # ========================================================================
+    # CONTEXT INDICATOR
+    # ========================================================================
+    context_text = _format_context_indicator(total_unfiltered, overview_df, selected_filters, asset_type)
+    st.markdown(f"**{context_text}**")
+    
+    # ========================================================================
+    # MANAGEMENT SNAPSHOT (5 KPIs)
+    # ========================================================================
+    if overview_df.empty:
+        st.info("No assets match the current filter selections. Adjust or clear filters to see results.")
+        return
+    
+    st.markdown("### Management Snapshot")
+    
+    total = len(overview_df)
+    within = int(overview_df["Asset Age"].between(0, 5).sum())
+    expired = int(overview_df["ITAM Replacement Candidate"].sum())
+    review_required = int(overview_df["ITAM Review Required"].sum())
+    replacement_candidates = int(overview_df["ITAM Replacement Candidate"].sum())
+    
     _metric_row([
         ("Total Assets", total),
         ("Within Lifecycle", within),
-        ("Expired Assets", expired),
-        ("Replacement Rate", f"{expired / total * 100:.1f}%" if total else "0.0%"),
+        ("Expired", expired),
+        ("Review Required", review_required),
+        ("Replacement Candidates", replacement_candidates),
     ])
-
-    st.subheader("Audit Summary")
-    _metric_row([
-        ("Assets Requiring Review", int(df["ITAM Review Required"].sum())),
-        ("High Severity Assets", int(df["ITAM Highest Severity"].eq("High").sum())),
-        ("Replacement Candidates", expired),
-    ])
-
-    st.subheader("Asset Portfolio")
-    portfolio_left, portfolio_right = st.columns(2)
-    with portfolio_left:
-        _bar_chart(df, "model", "Top Models", "overview-models")
-    with portfolio_right:
-        _bar_chart(df, "asset_type", "Asset Type", "overview-types")
-
-    st.subheader("Distribution")
-    distribution_left, distribution_right = st.columns(2)
-    with distribution_left:
-        _bar_chart(df, "department", "Top Departments", "overview-departments")
-    with distribution_right:
-        _bar_chart(df, "location", "Top Locations", "overview-locations")
 
 
 def _explorer_filters(df):

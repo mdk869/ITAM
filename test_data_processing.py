@@ -28,6 +28,10 @@ from itam.ui import (
     _clear_audit_filters,
     _chronological_counts,
     _clear_replacement_planning_filters,
+    _overview_filter_columns,
+    _apply_overview_filters,
+    _format_context_indicator,
+    _get_selected_filters,
     add_finding_categories,
     audit_table_columns,
     clean_asset_count,
@@ -569,6 +573,208 @@ class ExportAuditNoteTests(unittest.TestCase):
 
         self.assertEqual(exported.loc[0, "Audit Notes"], "[Medium] Lifecycle is Expired but Source State is In Use")
         self.assertEqual(source.loc[0, "ITAM Audit Findings"], "[Medium] ITAM lifecycle is Expired but source State is In Use")
+
+
+class OverviewFilterTests(unittest.TestCase):
+    """Test Overview filter logic for Slice 2C-1."""
+
+    def workstation_df(self):
+        """Return sample Workstation dataset with org hierarchy."""
+        return pd.DataFrame({
+            "asset_tag": ["W1", "W2", "W3", "W4", "W5"],
+            "serial_number": ["S1", "S2", "S3", "S4", "S5"],
+            "model": ["Dell", "HP", "Dell", "HP", "Dell"],
+            "asset_type": ["Workstation"] * 5,
+            "source_asset_subtype": ["Laptop", "Desktop", "Laptop", "Laptop", "Desktop"],
+            "workstation_status": ["Personal", "Personal", "Pool", "Pool", "Counter"],
+            "place": ["HQ", "HQ", "Branch", "Branch", "HQ"],
+            "site": ["Site1", "Site1", "Site2", "Site2", "Site1"],
+            "location": ["Floor1", "Floor2", "Floor1", "Floor2", "Floor1"],
+            "department": ["IT", "Finance", "IT", "Finance", "HR"],
+            "purchase_year": [2024, 2023, 2022, 2021, 2020],
+            "state": ["In Use", "In Use", "In Use", "In Use", "In Use"],
+            "ITAM Lifecycle Status": ["New", "Active", "Aging", "Expired", "Expired"],
+            "ITAM Replacement Candidate": [False, False, False, True, True],
+            "ITAM Review Required": [False, False, False, True, False],
+            "Asset Age": [0, 1, 2, 3, 4],
+        })
+
+    def smartphone_df(self):
+        """Return sample Smartphone dataset (no workstation_status, source_asset_subtype)."""
+        return pd.DataFrame({
+            "asset_tag": ["M1", "M2", "M3"],
+            "asset_type": ["Smartphone"] * 3,
+            "place": ["HQ", "Branch", "HQ"],
+            "site": ["Site1", "Site2", "Site1"],
+            "location": ["Floor1", "Floor1", "Floor2"],
+            "department": ["IT", "Finance", "HR"],
+            "ITAM Lifecycle Status": ["New", "Active", "Expired"],
+            "ITAM Replacement Candidate": [False, False, True],
+        })
+
+    def test_workstation_filter_columns_include_asset_subtype_and_assignment_type(self):
+        columns = _overview_filter_columns("Workstation")
+        column_names = [col for col, _ in columns]
+        self.assertIn("source_asset_subtype", column_names)
+        self.assertIn("workstation_status", column_names)
+        self.assertIn("place", column_names)
+        self.assertIn("site", column_names)
+
+    def test_smartphone_filter_columns_exclude_workstation_specific(self):
+        columns = _overview_filter_columns("Smartphone")
+        column_names = [col for col, _ in columns]
+        self.assertNotIn("source_asset_subtype", column_names)
+        self.assertNotIn("workstation_status", column_names)
+        self.assertIn("place", column_names)
+        self.assertIn("site", column_names)
+
+    def test_tablet_filter_columns_exclude_workstation_specific(self):
+        columns = _overview_filter_columns("Tablet")
+        column_names = [col for col, _ in columns]
+        self.assertNotIn("source_asset_subtype", column_names)
+        self.assertNotIn("workstation_status", column_names)
+
+    def test_apply_single_column_filter(self):
+        """Test filtering by one column."""
+        df = self.workstation_df()
+        # Simulate session state: filter to only "Pool"
+        import streamlit as st
+        st.session_state["overview-workstation_status"] = ["Pool"]
+        st.session_state["overview-source_asset_subtype"] = []
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        self.assertEqual(len(filtered), 2)
+        self.assertTrue(all(filtered["workstation_status"] == "Pool"))
+
+    def test_apply_cascading_filters(self):
+        """Test filtering by multiple columns maintains consistency."""
+        df = self.workstation_df()
+        import streamlit as st
+        # Filter: place="HQ" AND department="IT"
+        # Expected: only row 0 (W1) matches both filters
+        st.session_state["overview-place"] = ["HQ"]
+        st.session_state["overview-department"] = ["IT"]
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        self.assertEqual(len(filtered), 1)
+        self.assertTrue(all(filtered["place"] == "HQ"))
+        self.assertTrue(all(filtered["department"] == "IT"))
+
+    def test_empty_filter_returns_full_dataframe(self):
+        """Test that empty filter selections return all rows."""
+        df = self.workstation_df()
+        import streamlit as st
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        self.assertEqual(len(filtered), 5)
+
+    def test_filter_producing_zero_results(self):
+        """Test that impossible filter combinations result in empty dataframe."""
+        df = self.workstation_df()
+        import streamlit as st
+        # Filter to place="HQ" AND place="Branch" (impossible)
+        st.session_state["overview-workstation_status"] = ["Counter"]
+        st.session_state["overview-department"] = ["NonExistent"]
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        self.assertEqual(len(filtered), 0)
+
+    def test_context_indicator_unfiltered(self):
+        """Test context indicator when no filters applied."""
+        df = self.workstation_df()
+        import streamlit as st
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        selected_filters = _get_selected_filters("Workstation")
+        indicator = _format_context_indicator(5, df, selected_filters, "Workstation")
+        self.assertIn("Viewing all 5 assets", indicator)
+
+    def test_context_indicator_filtered_single_value(self):
+        """Test context indicator with single filter value."""
+        df = self.workstation_df()
+        import streamlit as st
+        st.session_state["overview-place"] = ["HQ"]
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        selected_filters = _get_selected_filters("Workstation")
+        indicator = _format_context_indicator(5, filtered, selected_filters, "Workstation")
+        self.assertIn("HQ", indicator)
+        self.assertIn("of 5 assets", indicator)
+
+    def test_context_indicator_filtered_multiple_values(self):
+        """Test context indicator with multiple filter values."""
+        df = self.workstation_df()
+        import streamlit as st
+        st.session_state["overview-workstation_status"] = ["Pool", "Personal"]
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        filtered = _apply_overview_filters(df, "Workstation")
+        selected_filters = _get_selected_filters("Workstation")
+        indicator = _format_context_indicator(5, filtered, selected_filters, "Workstation")
+        self.assertIn("Assignment Type (2)", indicator)
+        self.assertIn("of 5 assets", indicator)
+
+    def test_get_selected_filters_empty(self):
+        """Test that get_selected_filters returns empty dict when no filters selected."""
+        import streamlit as st
+        st.session_state["overview-place"] = []
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = []
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        selected = _get_selected_filters("Workstation")
+        self.assertEqual(selected, {})
+
+    def test_get_selected_filters_populated(self):
+        """Test that get_selected_filters returns only selected values."""
+        import streamlit as st
+        st.session_state["overview-place"] = ["HQ", "Branch"]
+        st.session_state["overview-site"] = []
+        st.session_state["overview-location"] = []
+        st.session_state["overview-department"] = ["IT"]
+        st.session_state["overview-workstation_status"] = []
+        st.session_state["overview-source_asset_subtype"] = []
+        
+        selected = _get_selected_filters("Workstation")
+        self.assertIn("place", selected)
+        self.assertIn("department", selected)
+        self.assertNotIn("site", selected)
+        self.assertEqual(selected["place"], ["HQ", "Branch"])
+        self.assertEqual(selected["department"], ["IT"])
 
 
 if __name__ == "__main__":
