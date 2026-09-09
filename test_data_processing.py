@@ -36,11 +36,18 @@ from itam.ui import (
     _format_context_indicator,
     _overview_group_summary,
     _get_selected_filters,
+    _overview_candidate_priority_counts,
+    _overview_finding_category_summary,
+    _overview_lifecycle_summary,
     _overview_missing_count,
     _overview_model_summary,
+    _overview_organisational_distribution,
+    _overview_priority_summary,
     _overview_local_place_selection,
     _overview_place_subset,
     _overview_place_summary,
+    _overview_severity_summary,
+    _overview_warranty_summary,
     add_finding_categories,
     audit_table_columns,
     clean_asset_count,
@@ -894,6 +901,72 @@ class OverviewIntelligenceTests(unittest.TestCase):
         self.assertEqual(int(_overview_composition_summary(pool_df, "Workstation")["Units"].sum()), 1)
         self.assertEqual(int(_overview_place_summary(pool_df, "Workstation")["Total"].sum()), 1)
         self.assertEqual(int(_overview_assignment_summary(pool_df)["Units"].sum()), 1)
+
+    def overview_v2_df(self):
+        return pd.DataFrame({
+            "ITAM Lifecycle Status": ["New", "Active", "Aging", "Expired", None],
+            "Warranty Status": ["Active", "Expiring Soon", "Expired", "Unknown", None],
+            "ITAM Highest Severity": ["High", "Medium", "Low", "Info", None],
+            "ITAM Planning Priority": ["Priority Review", "Standard Planning", "Low Operational Priority", "Not Candidate", "Not Candidate"],
+            "ITAM Replacement Candidate": [True, True, True, False, False],
+            "ITAM Duplicate Asset Tag": [True, True, False, False, False],
+            "ITAM Duplicate Serial": [False, False, False, False, False],
+            "ITAM Duplicate IMEI": [False, False, False, False, False],
+            "ITAM Missing Core Identity": [False, False, True, False, False],
+            "ITAM State Review Required": [False, False, False, True, False],
+            "ITAM Finding Count": [1, 1, 1, 1, 0],
+            "department": ["IT", None, "", "Finance", "IT"],
+            "place": ["HQ", "HQ", "Branch", None, "HQ"],
+            "site": ["Site 1", None, "Site 2", " ", "Site 1"],
+            "location": ["Floor 1", "Floor 2", None, "", "Floor 1"],
+        })
+
+    def test_lifecycle_summary_preserves_order_unknown_and_reconciliation(self):
+        summary = _overview_lifecycle_summary(self.overview_v2_df())
+        self.assertEqual(summary["Category"].tolist(), ["New", "Active", "Aging", "Expired", "Unknown"])
+        self.assertEqual(int(summary["Assets"].sum()), 5)
+        self.assertEqual(int(summary.loc[summary["Category"] == "Unknown", "Assets"].iloc[0]), 1)
+
+    def test_warranty_summary_preserves_order_unknown_and_reconciliation(self):
+        summary = _overview_warranty_summary(self.overview_v2_df())
+        self.assertEqual(summary["Category"].tolist(), ["Active", "Expiring Soon", "Expired", "Unknown"])
+        self.assertEqual(int(summary["Assets"].sum()), 5)
+        self.assertEqual(int(summary.loc[summary["Category"] == "Unknown", "Assets"].iloc[0]), 2)
+
+    def test_severity_summary_includes_none_without_absent_critical(self):
+        summary = _overview_severity_summary(self.overview_v2_df())
+        self.assertEqual(summary["Category"].tolist(), ["High", "Medium", "Low", "Info", "None"])
+        self.assertEqual(int(summary["Assets"].sum()), 5)
+
+    def test_finding_category_summary_excludes_clean_and_limits_results(self):
+        summary = _overview_finding_category_summary(self.overview_v2_df(), top_n=2)
+        self.assertNotIn("Clean", summary["Finding Category"].tolist())
+        self.assertLessEqual(len(summary), 2)
+        self.assertEqual(int(summary["Assets"].sum()), 3)
+        self.assertEqual(float(summary.loc[summary["Finding Category"] == "Duplicate Identity", "% of Assets"].iloc[0]), 40.0)
+
+    def test_priority_profile_and_candidate_counts_use_derived_values(self):
+        summary = _overview_priority_summary(self.overview_v2_df())
+        candidate_counts = _overview_candidate_priority_counts(self.overview_v2_df())
+        self.assertEqual(int(summary["Assets"].sum()), 5)
+        self.assertEqual(candidate_counts.to_dict(), {
+            "Priority Review": 1, "Standard Planning": 1, "Low Operational Priority": 1,
+        })
+
+    def test_organisational_distributions_reconcile_and_merge_missing_values(self):
+        df = self.overview_v2_df()
+        for column in ["place", "site", "location", "department"]:
+            summary = _overview_organisational_distribution(df, column)
+            self.assertEqual(int(summary["Units"].sum()), len(df))
+            self.assertIn("Not Assigned", summary["Category"].tolist())
+
+    def test_filtered_overview_subset_drives_every_new_profile(self):
+        subset = self.overview_v2_df().iloc[:3]
+        self.assertEqual(int(_overview_lifecycle_summary(subset)["Assets"].sum()), 3)
+        self.assertEqual(int(_overview_warranty_summary(subset)["Assets"].sum()), 3)
+        self.assertEqual(int(_overview_severity_summary(subset)["Assets"].sum()), 3)
+        self.assertEqual(int(_overview_priority_summary(subset)["Assets"].sum()), 3)
+        self.assertEqual(int(_overview_organisational_distribution(subset, "site")["Units"].sum()), 3)
 
 
 if __name__ == "__main__":

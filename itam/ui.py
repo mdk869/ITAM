@@ -631,6 +631,85 @@ def _overview_local_place_selection(selected_place, place_options):
     return selected_place if selected_place in place_options else "Select a Place"
 
 
+def _overview_ordered_status_summary(df, column, order, missing_label="Unknown"):
+    """Summarize a derived status in semantic order without hiding missing values."""
+    summary_columns = ["Category", "Assets", "% of Assets"]
+    if column not in df.columns:
+        return pd.DataFrame(columns=summary_columns)
+    values = df[column].map(lambda value: missing_label if pd.isna(value) or not str(value).strip() else str(value).strip())
+    counts = values.value_counts()
+    categories = [category for category in order if category in counts]
+    categories.extend(category for category in counts.index if category not in categories)
+    return pd.DataFrame({
+        "Category": categories,
+        "Assets": [int(counts[category]) for category in categories],
+        "% of Assets": [(counts[category] / len(df) * 100).round(1) for category in categories],
+    })
+
+
+def _overview_lifecycle_summary(df):
+    """Return the authoritative lifecycle distribution in business order."""
+    return _overview_ordered_status_summary(
+        df, "ITAM Lifecycle Status", ["New", "Active", "Aging", "Expired", "Unknown"]
+    )
+
+
+def _overview_warranty_summary(df):
+    """Return the authoritative warranty distribution in business order."""
+    return _overview_ordered_status_summary(
+        df, "Warranty Status", ["Active", "Expiring Soon", "Expired", "Unknown"]
+    )
+
+
+def _overview_severity_summary(df):
+    """Return present audit severities in descending severity order."""
+    return _overview_ordered_status_summary(
+        df, "ITAM Highest Severity", AUDIT_SEVERITY_ORDER, missing_label="None"
+    )
+
+
+def _overview_finding_category_summary(df, top_n=5):
+    """Return the leading affected-asset finding categories without raw audit text."""
+    categorized = add_finding_categories(df)
+    categories = categorized.loc[categorized["Finding Category"].ne("Clean"), "Finding Category"]
+    counts = categories.value_counts().head(top_n)
+    return pd.DataFrame({
+        "Finding Category": counts.index,
+        "Assets": counts.values,
+        "% of Assets": (counts.values / len(df) * 100).round(1),
+    })
+
+
+def _overview_priority_summary(df):
+    """Return the full derived planning-priority profile in locked order."""
+    return _overview_ordered_status_summary(
+        df,
+        "ITAM Planning Priority",
+        ["Priority Review", "Standard Planning", "Low Operational Priority", "Not Candidate"],
+        missing_label="Not Candidate",
+    )
+
+
+def _overview_candidate_priority_counts(df):
+    """Return candidate-only priority counts from the existing derived priority field."""
+    summary = _overview_priority_summary(df)
+    return summary.loc[summary["Category"].ne("Not Candidate")].set_index("Category")["Assets"]
+
+
+def _overview_organisational_distribution(df, column):
+    """Return a full organisational distribution using presentation-only Not Assigned values."""
+    summary_columns = ["Category", "Units", "% of Assets"]
+    if column not in df.columns:
+        return pd.DataFrame(columns=summary_columns)
+    values = df[column].map(_display_group_value)
+    counts = values.value_counts()
+    return pd.DataFrame({
+        "Category": counts.index,
+        "Units": counts.values,
+        "% of Assets": (counts.values / len(df) * 100).round(1),
+    })
+
+
 def _render_overview_distribution(summary, title, key):
     """Render a compact themed distribution chart from an Overview summary."""
     if summary.empty:
@@ -820,38 +899,90 @@ def render_overview(df, asset_type):
         "Place detail", ["Select a Place", *place_options],
         key=place_key,
     )
-    if selected_place == "Select a Place":
-        return
-
-    selected_place_df = _overview_place_subset(overview_df, selected_place)
-    place_metrics = [
-        ("Total Assets", len(selected_place_df)),
-        ("Review Required", int(selected_place_df["ITAM Review Required"].eq(True).sum())),
-        ("Replacement Candidates", int(selected_place_df["ITAM Replacement Candidate"].eq(True).sum())),
-    ]
-    if asset_type == "Workstation":
-        statuses = selected_place_df["workstation_status"].astype("string").fillna("").str.strip()
-        place_metrics[1:1] = [
-            ("Personal", int(statuses.eq("Personal").sum())),
-            ("Pool", int(statuses.eq("Pool").sum())),
-            ("Counter", int(statuses.eq("Counter").sum())),
+    if selected_place != "Select a Place":
+        selected_place_df = _overview_place_subset(overview_df, selected_place)
+        place_metrics = [
+            ("Total Assets", len(selected_place_df)),
+            ("Review Required", int(selected_place_df["ITAM Review Required"].eq(True).sum())),
+            ("Replacement Candidates", int(selected_place_df["ITAM Replacement Candidate"].eq(True).sum())),
         ]
-    st.markdown(f"#### {selected_place}")
-    _metric_row(place_metrics)
+        if asset_type == "Workstation":
+            statuses = selected_place_df["workstation_status"].astype("string").fillna("").str.strip()
+            place_metrics[1:1] = [
+                ("Personal", int(statuses.eq("Personal").sum())),
+                ("Pool", int(statuses.eq("Pool").sum())),
+                ("Counter", int(statuses.eq("Counter").sum())),
+            ]
+        st.markdown(f"#### {selected_place}")
+        _metric_row(place_metrics)
 
-    site_summary = _overview_group_summary(selected_place_df, "site", asset_type)
-    st.markdown("#### Site Breakdown")
-    if site_summary.empty:
-        st.info("No Site values are available for the selected Place.")
-        return
-    st.dataframe(site_summary, width="stretch", hide_index=True)
+        site_summary = _overview_group_summary(selected_place_df, "site", asset_type)
+        st.markdown("#### Site Breakdown")
+        if site_summary.empty:
+            st.info("No Site values are available for the selected Place.")
+        else:
+            st.dataframe(site_summary, width="stretch", hide_index=True)
 
-    location_summary = _overview_group_summary(selected_place_df, "location", asset_type)
-    st.markdown("#### Location Breakdown")
-    if location_summary.empty:
-        st.info("No Location values are available for the selected Place.")
-    else:
-        st.dataframe(location_summary, width="stretch", hide_index=True)
+        location_summary = _overview_group_summary(selected_place_df, "location", asset_type)
+        st.markdown("#### Location Breakdown")
+        if location_summary.empty:
+            st.info("No Location values are available for the selected Place.")
+        else:
+            st.dataframe(location_summary, width="stretch", hide_index=True)
+
+    st.markdown("### Lifecycle & Warranty")
+    lifecycle_col, warranty_col = st.columns(2)
+    with lifecycle_col:
+        st.markdown("#### Lifecycle Profile")
+        st.dataframe(_overview_lifecycle_summary(overview_df), width="stretch", hide_index=True)
+    with warranty_col:
+        st.markdown("#### Warranty Profile")
+        st.dataframe(_overview_warranty_summary(overview_df), width="stretch", hide_index=True)
+
+    st.markdown("### Audit Health")
+    severity_col, findings_col = st.columns(2)
+    with severity_col:
+        st.markdown("#### Severity Distribution")
+        _render_overview_distribution(
+            _overview_severity_summary(overview_df).rename(columns={"Assets": "Units"}),
+            "Audit Severity", "overview-audit-severity",
+        )
+    with findings_col:
+        st.markdown("#### Top Finding Categories")
+        finding_summary = _overview_finding_category_summary(overview_df, top_n=5)
+        if finding_summary.empty:
+            st.info("No audit finding categories are present in the current context.")
+        else:
+            st.dataframe(finding_summary, width="stretch", hide_index=True)
+
+    st.markdown("### Replacement Outlook")
+    candidate_counts = _overview_candidate_priority_counts(overview_df)
+    _metric_row([
+        ("Replacement Candidates", int(overview_df["ITAM Replacement Candidate"].eq(True).sum())),
+        ("Priority Review", int(candidate_counts.get("Priority Review", 0))),
+        ("Standard Planning", int(candidate_counts.get("Standard Planning", 0))),
+        ("Low Operational Priority", int(candidate_counts.get("Low Operational Priority", 0))),
+    ])
+    _render_overview_distribution(
+        _overview_priority_summary(overview_df).rename(columns={"Assets": "Units"}),
+        "Planning Priority Profile", "overview-planning-priority",
+    )
+
+    st.markdown("### Organisational Distribution")
+    distribution_labels = {
+        "Place": "place", "Site": "site", "Location": "location", "Department": "department",
+    }
+    distribution_key = "overview-organisational-distribution"
+    selected_distribution = st.selectbox("Distribution By", list(distribution_labels), key=distribution_key)
+    organisational_summary = _overview_organisational_distribution(
+        overview_df, distribution_labels[selected_distribution]
+    )
+    top_distribution = organisational_summary.head(10)
+    _render_overview_distribution(
+        top_distribution, f"Top 10 {selected_distribution}", "overview-organisational-chart",
+    )
+    if len(organisational_summary) > len(top_distribution):
+        st.caption(f"Showing the top 10 of {len(organisational_summary):,} {selected_distribution.casefold()} categories.")
 
 
 def _explorer_filters(df):
