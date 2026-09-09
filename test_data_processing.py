@@ -5,7 +5,7 @@ from io import BytesIO
 import pandas as pd
 
 from asset_dashboard import escape
-from itam.audit import calculate_asset_age, get_warranty_status
+from itam.audit import calculate_asset_age, get_warranty_status, run_itam_audit
 from itam.data import (
     CANONICAL_COLUMNS,
     apply_literal_search,
@@ -20,6 +20,7 @@ from itam.ui import (
     CANDIDATE_DETAIL_COLUMNS,
     CANDIDATE_DETAIL_OPTIONAL_COLUMNS,
     DISPLAY_LABELS,
+    EXPORT_FIELD_REGISTRY,
     AUDIT_SEARCH_COLUMNS,
     AUDIT_CURATED_COLUMNS,
     PLANNING_FILTER_RESET_COLUMNS,
@@ -236,7 +237,7 @@ class AuditPresentationTests(unittest.TestCase):
         self.assertEqual(columns, [column for column in AUDIT_CURATED_COLUMNS if column != "imei"])
         self.assertEqual(list(exported.columns), [
             "Severity", "Review Required", "Asset Type", "Asset Tag", "Serial Number",
-            "Model / Product", "Source State", "Lifecycle", "Finding Category",
+            "Model", "Asset State", "Lifecycle", "Finding Category",
             "Audit Notes", "Site", "Department",
         ])
         self.assertNotIn("ITAM", " ".join(exported.columns))
@@ -309,7 +310,10 @@ class CustomExportTests(unittest.TestCase):
 
         columns = resolve_export_columns(processed, "Standard Asset View")
 
-        self.assertEqual(columns[:5], ["asset_type", "asset_tag", "serial_number", "model", "state"])
+        self.assertEqual(columns, [
+            "employee_id", "user", "job_title", "email", "department", "place", "location",
+            "state", "asset_type", "model", "asset_tag", "serial_number", "imei", "sim_number",
+        ])
         self.assertNotIn("workstation_status", columns)
 
     def test_custom_export_preserves_selection_order_and_readable_labels(self):
@@ -331,8 +335,70 @@ class CustomExportTests(unittest.TestCase):
 
         self.assertTrue(replacement_columns)
         self.assertNotIn("workstation_status", replacement_columns)
-        self.assertEqual(resolve_export_columns(processed, "Custom", []), [])
+        self.assertEqual(resolve_export_columns(processed, "Custom", []), resolve_export_columns(processed, "Standard Asset Export"))
         self.assertIsNone(prepare_export_dataframe(processed, []))
+
+
+class ExportSchemaVNextTests(unittest.TestCase):
+    workstation_baseline = [
+        "Staff ID", "Name", "Designation", "Email", "Department", "Place", "Location",
+        "Asset State", "Assignment Type", "Asset Type", "Asset Subtype", "Model",
+        "Asset Tag", "Serial Number",
+    ]
+    mobile_baseline = [
+        "Staff ID", "Name", "Designation", "Email", "Department", "Place", "Location",
+        "Asset State", "Asset Type", "Model", "Asset Tag", "Serial Number", "IMEI", "SIM Number",
+    ]
+
+    def processed(self, asset_type):
+        source = CanonicalSchemaTests().workstation() if asset_type == "Workstation" else CanonicalSchemaTests().mobile()
+        result = calculate_asset_age(build_canonical_dataframe(source, asset_type))
+        result["Warranty Status"] = "Active"
+        return run_itam_audit(result)
+
+    def test_standard_baseline_is_exact_and_dataset_aware(self):
+        for asset_type, expected in [("Workstation", self.workstation_baseline), ("Smartphone", self.mobile_baseline), ("Tablet", self.mobile_baseline)]:
+            processed = self.processed(asset_type)
+            exported = prepare_export_dataframe(processed, resolve_export_columns(processed, "Standard Asset Export"))
+            self.assertEqual(list(exported.columns), expected)
+        self.assertNotIn("Assignment Type", self.mobile_baseline)
+        self.assertNotIn("Asset Subtype", self.mobile_baseline)
+
+    def test_registry_custom_options_hide_aliases_and_have_unique_labels(self):
+        labels = [field["label"] for field in EXPORT_FIELD_REGISTRY]
+        self.assertEqual(len(labels), len(set(labels)))
+        for alias in ["User Email", "User Employee ID", "User Jobtitle", "Workstation Status", "AssetTag", "No. IMEI", "No. Sim", "Product"]:
+            self.assertNotIn(alias, labels)
+        processed = self.processed("Workstation")
+        selected = resolve_export_columns(processed, "Custom", ["email", "User Email", "asset_tag"])
+        self.assertEqual(selected.count("email"), 1)
+        self.assertNotIn("User Email", selected)
+        self.assertIn("asset_tag", selected)
+
+    def test_custom_always_includes_baseline_and_only_selected_additional_fields(self):
+        processed = self.processed("Workstation")
+        selected = resolve_export_columns(processed, "Custom", ["purchase_year", "ITAM Finding Count"])
+        self.assertEqual(selected[-2:], ["purchase_year", "ITAM Finding Count"])
+        self.assertEqual(len(selected), 16)
+
+    def test_presets_append_only_their_module_fields(self):
+        processed = self.processed("Tablet")
+        lifecycle = prepare_export_dataframe(processed, resolve_export_columns(processed, "Lifecycle & Warranty"))
+        audit = prepare_export_dataframe(processed, resolve_export_columns(processed, "Audit Findings"))
+        replacement = prepare_export_dataframe(processed, resolve_export_columns(processed, "Replacement Planning"))
+        self.assertEqual(list(lifecycle.columns)[len(self.mobile_baseline):], ["Year Of Purchase", "Asset Age", "Lifecycle", "Warranty Expiry", "Warranty Status"])
+        self.assertEqual(list(audit.columns)[len(self.mobile_baseline):], ["Review Required", "Severity", "Audit Notes", "Duplicate Asset Tag", "Duplicate Serial", "Duplicate IMEI", "Missing Core Identity", "State Review Required"])
+        self.assertEqual(list(replacement.columns)[len(self.mobile_baseline):], ["Year Of Purchase", "Asset Age", "Lifecycle", "Replacement Candidate", "Planning Priority"])
+
+    def test_missing_values_remain_missing_and_formula_sanitization_is_unchanged(self):
+        processed = self.processed("Smartphone")
+        processed.loc[0, "email"] = pd.NA
+        processed.loc[0, "sim_number"] = "Not Assigned"
+        exported = prepare_export_dataframe(processed, resolve_export_columns(processed, "Standard Asset Export"))
+        self.assertTrue(pd.isna(exported.loc[0, "Email"]))
+        self.assertEqual(exported.loc[0, "SIM Number"], "Not Assigned")
+        formula_source = pd.DataFrame({"email": ["=SUM(A1:A2)"]})
+        self.assertEqual(pd.read_excel(export_to_excel(formula_source), engine="openpyxl").loc[0, "email"], "'=SUM(A1:A2)")
 
 
 class BreakdownHelperTests(unittest.TestCase):
@@ -384,7 +450,6 @@ class BreakdownHelperTests(unittest.TestCase):
 
         self.assertTrue(exported.columns.is_unique)
         self.assertTrue(all("itam" not in label.casefold() for label in exported.columns))
-        self.assertIn("Lifecycle", exported.columns)
         self.assertIn("Audit Notes", exported.columns)
 
 

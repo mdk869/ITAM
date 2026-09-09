@@ -45,6 +45,66 @@ DISPLAY_LABELS = {
     "ITAM Missing Core Identity": "Missing Core Identity",
 }
 
+EXPORT_LABELS = {
+    "employee_id": "Staff ID", "user": "Name", "job_title": "Designation",
+    "email": "Email", "department": "Department", "place": "Place",
+    "location": "Location", "state": "Asset State", "workstation_status": "Assignment Type",
+    "asset_type": "Asset Type", "source_asset_subtype": "Asset Subtype", "model": "Model",
+    "asset_tag": "Asset Tag", "serial_number": "Serial Number", "imei": "IMEI",
+    "sim_number": "SIM Number", "site": "Site", "programme": "Programme",
+    "purchase_year": "Year Of Purchase", "warranty_expiry": "Warranty Expiry",
+    "Asset Age": "Asset Age", "ITAM Lifecycle Status": "Lifecycle",
+    "Warranty Status": "Warranty Status", "ITAM Review Required": "Review Required",
+    "ITAM Highest Severity": "Severity", "ITAM Audit Findings": "Audit Notes",
+    "ITAM Finding Count": "Findings",
+    "ITAM Duplicate Asset Tag": "Duplicate Asset Tag", "ITAM Duplicate Serial": "Duplicate Serial",
+    "ITAM Duplicate IMEI": "Duplicate IMEI", "ITAM Missing Core Identity": "Missing Core Identity",
+    "ITAM State Review Required": "State Review Required", "ITAM Replacement Candidate": "Replacement Candidate",
+    "ITAM Planning Priority": "Planning Priority",
+}
+
+WORKSTATION_BASELINE = [
+    "employee_id", "user", "job_title", "email", "department", "place", "location",
+    "state", "workstation_status", "asset_type", "source_asset_subtype", "model",
+    "asset_tag", "serial_number",
+]
+MOBILE_BASELINE = [
+    "employee_id", "user", "job_title", "email", "department", "place", "location",
+    "state", "asset_type", "model", "asset_tag", "serial_number", "imei", "sim_number",
+]
+
+# Raw source columns are intentionally absent from this export presentation contract.
+EXPORT_FIELD_REGISTRY = [
+    *[{"label": EXPORT_LABELS[column], "column": column, "datasets": {"Workstation"}, "mandatory": True} for column in WORKSTATION_BASELINE],
+    *[{"label": EXPORT_LABELS[column], "column": column, "datasets": {"Smartphone", "Tablet"}, "mandatory": True} for column in MOBILE_BASELINE],
+    *[{"label": EXPORT_LABELS[column], "column": column, "datasets": {"Workstation", "Smartphone", "Tablet"}} for column in ["site", "programme", "purchase_year", "warranty_expiry", "Asset Age", "ITAM Lifecycle Status", "Warranty Status", "ITAM Review Required", "ITAM Highest Severity", "ITAM Finding Count", "ITAM Audit Findings", "ITAM Duplicate Asset Tag", "ITAM Duplicate Serial", "ITAM Missing Core Identity", "ITAM State Review Required", "ITAM Replacement Candidate", "ITAM Planning Priority"]],
+    {"label": "Audit Notes", "column": "ITAM Audit Findings", "datasets": {"Workstation", "Smartphone", "Tablet"}},
+    {"label": "Duplicate IMEI", "column": "ITAM Duplicate IMEI", "datasets": {"Smartphone", "Tablet"}},
+]
+
+_merged_export_registry = {}
+for _field in EXPORT_FIELD_REGISTRY:
+    _existing = _merged_export_registry.get(_field["column"])
+    if _existing is None:
+        _merged_export_registry[_field["column"]] = _field.copy()
+    else:
+        _existing["datasets"] = _existing["datasets"] | _field["datasets"]
+        _existing["mandatory"] = _existing.get("mandatory", False) or _field.get("mandatory", False)
+EXPORT_FIELD_REGISTRY = list(_merged_export_registry.values())
+
+PRESET_ADDITIONAL_FIELDS = {
+    "Lifecycle & Warranty": ["purchase_year", "Asset Age", "ITAM Lifecycle Status", "warranty_expiry", "Warranty Status"],
+    "Audit Findings": [
+        "ITAM Review Required", "ITAM Highest Severity", "ITAM Audit Findings",
+        "ITAM Duplicate Asset Tag", "ITAM Duplicate Serial", "ITAM Duplicate IMEI",
+        "ITAM Missing Core Identity", "ITAM State Review Required",
+    ],
+    "Replacement Planning": [
+        "purchase_year", "Asset Age", "ITAM Lifecycle Status",
+        "ITAM Replacement Candidate", "ITAM Planning Priority",
+    ],
+}
+
 AUDIT_CURATED_COLUMNS = [
     "ITAM Highest Severity", "ITAM Review Required", "asset_type", "asset_tag",
     "serial_number", "model", "state", "ITAM Lifecycle Status", "Finding Category",
@@ -193,7 +253,7 @@ def audit_table_columns(df):
     return _meaningful_optional_columns(df, AUDIT_CURATED_COLUMNS, {"imei"})
 
 
-def make_display_dataframe(df, columns=None):
+def make_display_dataframe(df, columns=None, label_map=None):
     """Copy a frame and apply unique human-readable display labels."""
     selected_columns = list(df.columns) if columns is None else [
         column for column in columns if column in df.columns
@@ -204,7 +264,7 @@ def make_display_dataframe(df, columns=None):
     labels = []
     used_labels = set()
     for column in display_df.columns:
-        label = DISPLAY_LABELS.get(column, str(column))
+        label = (label_map or DISPLAY_LABELS).get(column, str(column))
         if label in used_labels and column in DISPLAY_LABELS:
             label = f"{label} (Canonical)"
         if label in used_labels:
@@ -221,27 +281,50 @@ def make_display_dataframe(df, columns=None):
     return display_df
 
 
-def resolve_export_columns(df, preset, custom_columns=None):
-    """Resolve a preset to available internal columns without dropping data silently."""
-    if preset == "Custom":
-        requested = custom_columns or []
-    elif preset == "Full Dataset":
-        requested = list(df.columns)
-    else:
-        requested = EXPORT_PRESETS.get(preset, [])
-    if preset == "Full Dataset":
-        return requested
+def _export_asset_type(df):
+    values = df.get("asset_type", pd.Series(dtype="object")).dropna().astype(str)
+    return values.iloc[0] if not values.empty else "Workstation"
+
+
+def _export_registry_fields(df, mandatory_only=False):
+    asset_type = _export_asset_type(df)
     return [
-        column for column in requested
-        if column in df.columns and df[column].notna().any()
+        field for field in EXPORT_FIELD_REGISTRY
+        if asset_type in field["datasets"] and (not mandatory_only or field.get("mandatory", False))
+        and field["column"] in df.columns
     ]
 
 
+def _export_columns_for_fields(df, fields, include_empty=False):
+    columns = []
+    for field in fields:
+        column = field["column"]
+        if column not in columns and (include_empty or df[column].notna().any()):
+            columns.append(column)
+    return columns
+
+
+def resolve_export_columns(df, preset, custom_columns=None):
+    """Resolve clean, dataset-aware export fields in operational order."""
+    baseline = _export_columns_for_fields(df, _export_registry_fields(df, mandatory_only=True), include_empty=True)
+    if preset in {"Standard Asset View", "Standard Asset Export"}:
+        return baseline
+    if preset == "Custom":
+        allowed = {field["column"] for field in _export_registry_fields(df)}
+        requested = [column for column in (custom_columns or []) if column in allowed]
+    elif preset == "Full Dataset":
+        return list(df.columns)
+    else:
+        requested = PRESET_ADDITIONAL_FIELDS.get(preset, [])
+    additional = [column for column in requested if column in df.columns and df[column].notna().any()]
+    return baseline + [column for column in additional if column not in baseline]
+
+
 def prepare_export_dataframe(df, columns):
-    """Prepare selected export columns using the same unique display labels as tables."""
+    """Prepare selected export columns with clean labels and no source aliases."""
     if not columns:
         return None
-    return make_display_dataframe(df, columns)
+    return make_display_dataframe(df, columns, label_map=EXPORT_LABELS)
 
 
 def _display_frame(df, columns=None):
@@ -262,32 +345,42 @@ def render_export_panel(df, scope_label, filename, key, default_preset="Standard
     """Render a compact, page-local custom Excel export workflow."""
     st.subheader("Export Data")
     st.caption(scope_label)
-    preset_options = ["Standard Asset View", "Audit Findings", "Replacement Planning", "Full Dataset", "Custom"]
+    preset_options = ["Standard Asset Export", "Lifecycle & Warranty", "Audit Findings", "Replacement Planning", "Custom"]
+    if default_preset == "Standard Asset View":
+        default_preset = "Standard Asset Export"
     preset = st.selectbox(
         "Column Preset", preset_options, index=preset_options.index(default_preset),
         key=f"{key}-preset",
     )
-    available_display = make_display_dataframe(df)
-    display_to_internal = dict(zip(available_display.columns, df.columns))
+    registry_fields = _export_registry_fields(df)
+    display_to_internal = {field["label"]: field["column"] for field in registry_fields}
+    available_display = list(display_to_internal)
     default_internal = resolve_export_columns(df, preset)
-    default_display = [
-        label for label, column in display_to_internal.items() if column in default_internal
-    ]
+    default_display = [field["label"] for field in registry_fields if field["column"] in default_internal]
     columns_key = f"{key}-columns-select-{preset}"
     selected_display = st.multiselect(
-        "Columns", list(available_display.columns), default=default_display,
+        "Additional fields" if preset == "Custom" else "Columns", available_display,
+        default=default_display if preset != "Custom" else [
+            field["label"] for field in registry_fields
+            if field["column"] in default_internal and not field.get("mandatory", False)
+        ],
         key=columns_key,
     )
     select_left, select_right = st.columns(2)
     with select_left:
         if st.button("Select All", key=f"{key}-all", width="stretch"):
-            st.session_state[columns_key] = list(available_display.columns)
+            st.session_state[columns_key] = available_display
             st.rerun()
     with select_right:
         if st.button("Clear", key=f"{key}-clear", width="stretch"):
             st.session_state[columns_key] = []
             st.rerun()
     selected_internal = [display_to_internal[label] for label in selected_display]
+    if preset == "Custom":
+        selected_internal = resolve_export_columns(df, "Custom", selected_internal)
+    else:
+        baseline = resolve_export_columns(df, "Standard Asset Export")
+        selected_internal = baseline + [column for column in selected_internal if column not in baseline]
     if not selected_internal:
         st.warning("Select at least one column to export.")
         return
