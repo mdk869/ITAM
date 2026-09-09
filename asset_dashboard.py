@@ -26,6 +26,17 @@ st.set_page_config(
 # CONSTANTS
 # ============================================================================
 # ============================================================================
+# THEME DETECTION
+# ============================================================================
+def _active_theme_type():
+    """Return 'dark' or 'light' for the user's active Streamlit theme (falls back to 'light')."""
+    try:
+        return st.context.theme.type or "light"
+    except Exception:
+        return "light"
+
+
+# ============================================================================
 # AIR SELANGOR THEME CSS
 # ============================================================================
 def inject_professional_css():
@@ -53,6 +64,13 @@ def inject_professional_css():
             --text-secondary: var(--al-muted);
             --background: var(--al-bg);
             --border: var(--al-border);
+
+            /* Fixed-light controls used inside the always-dark navy sidebar; kept theme-independent. */
+            --al-control-surface: #FFFFFF;
+            --al-control-border: #D9E2EC;
+            --al-control-text: #172B4D;
+            --al-control-muted: #6B7C93;
+            --al-control-highlight: #E7F0F5;
         }
 
         [data-testid="stAppViewContainer"] {
@@ -140,21 +158,21 @@ def inject_professional_css():
         }
 
         [data-testid="stSidebar"] [data-baseweb="select"] > div {
-            background: var(--al-surface) !important;
-            border: 1px solid var(--al-border) !important;
+            background: var(--al-control-surface) !important;
+            border: 1px solid var(--al-control-border) !important;
             border-radius: 6px !important;
         }
 
         [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"],
         [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] span,
         [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] input {
-            color: var(--al-text) !important;
+            color: var(--al-control-text) !important;
         }
 
         [data-testid="stSidebar"] [data-baseweb="select"] [role="combobox"] svg,
         [data-testid="stSidebar"] [data-baseweb="select"] svg {
-            fill: var(--al-text) !important;
-            color: var(--al-text) !important;
+            fill: var(--al-control-text) !important;
+            color: var(--al-control-text) !important;
         }
 
         [data-testid="stSidebar"] [data-baseweb="select"] [aria-disabled="true"],
@@ -165,16 +183,16 @@ def inject_professional_css():
         }
 
         [data-testid="stSidebar"] [role="combobox"] {
-            background: var(--al-surface) !important;
-            border: 1px solid var(--al-border) !important;
+            background: var(--al-control-surface) !important;
+            border: 1px solid var(--al-control-border) !important;
             border-radius: 6px !important;
-            color: var(--al-text) !important;
-            -webkit-text-fill-color: var(--al-text) !important;
+            color: var(--al-control-text) !important;
+            -webkit-text-fill-color: var(--al-control-text) !important;
         }
 
         [data-testid="stSidebar"] [role="combobox"]::placeholder {
-            color: var(--al-muted) !important;
-            -webkit-text-fill-color: var(--al-muted) !important;
+            color: var(--al-control-muted) !important;
+            -webkit-text-fill-color: var(--al-control-muted) !important;
         }
 
         [data-testid="stSidebar"] [role="combobox"]:disabled {
@@ -186,36 +204,36 @@ def inject_professional_css():
 
         [data-testid="stSidebar"] [role="combobox"] + button,
         [data-testid="stSidebar"] [role="combobox"] ~ button {
-            background: var(--al-surface) !important;
-            color: var(--al-text) !important;
-            border: 1px solid var(--al-border) !important;
+            background: var(--al-control-surface) !important;
+            color: var(--al-control-text) !important;
+            border: 1px solid var(--al-control-border) !important;
             border-left: 0 !important;
         }
 
         [data-testid="stSidebar"] [role="combobox"] + button svg,
         [data-testid="stSidebar"] [role="combobox"] ~ button svg {
-            color: var(--al-text) !important;
-            fill: var(--al-text) !important;
+            color: var(--al-control-text) !important;
+            fill: var(--al-control-text) !important;
         }
 
         [role="listbox"][aria-label="Navigation Open"],
         [role="listbox"][aria-label="Select Sheet Open"] {
-            background: var(--al-surface) !important;
-            border: 1px solid var(--al-border) !important;
+            background: var(--al-control-surface) !important;
+            border: 1px solid var(--al-control-border) !important;
         }
 
         [role="listbox"][aria-label="Navigation Open"] [role="option"],
         [role="listbox"][aria-label="Select Sheet Open"] [role="option"] {
-            background: var(--al-surface) !important;
-            color: var(--al-text) !important;
+            background: var(--al-control-surface) !important;
+            color: var(--al-control-text) !important;
         }
 
         [role="listbox"][aria-label="Navigation Open"] [role="option"]:hover,
         [role="listbox"][aria-label="Select Sheet Open"] [role="option"]:hover,
         [role="listbox"][aria-label="Navigation Open"] [aria-selected="true"],
         [role="listbox"][aria-label="Select Sheet Open"] [aria-selected="true"] {
-            background: var(--light-blue) !important;
-            color: var(--al-text) !important;
+            background: var(--al-control-highlight) !important;
+            color: var(--al-control-text) !important;
         }
 
         .al-brand {
@@ -335,6 +353,22 @@ def inject_professional_css():
         }
         </style>
     """, unsafe_allow_html=True)
+
+    if _active_theme_type() == "dark":
+        st.markdown("""
+            <style>
+            :root {
+                --al-bg: #0B1622;
+                --al-surface: #16212E;
+                --al-border: #2B3A4A;
+                --al-text: #E7ECF2;
+                --al-muted: #93A4B5;
+                --primary-blue: #6FB7DE;
+                --secondary-blue: #4FB4D8;
+                --light-blue: #1E3A4D;
+            }
+            </style>
+        """, unsafe_allow_html=True)
 
 # ============================================================================
 # DATA PROCESSING FUNCTIONS

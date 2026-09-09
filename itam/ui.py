@@ -7,6 +7,28 @@ from itam.data import apply_literal_search
 from itam.export import export_to_excel
 
 
+def _active_theme_type():
+    """Return 'dark' or 'light' for the user's active Streamlit theme (falls back to 'light')."""
+    try:
+        return st.context.theme.type or "light"
+    except Exception:
+        return "light"
+
+
+def _themed_chart(figure):
+    """Apply a transparent, theme-aware background/font so charts stay readable in dark mode."""
+    is_dark = _active_theme_type() == "dark"
+    figure.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#E7ECF2" if is_dark else "#172B4D",
+    )
+    grid_color = "rgba(231,236,242,0.15)" if is_dark else "rgba(15,39,68,0.08)"
+    figure.update_xaxes(gridcolor=grid_color, zerolinecolor=grid_color)
+    figure.update_yaxes(gridcolor=grid_color, zerolinecolor=grid_color)
+    return figure
+
+
 DISPLAY_LABELS = {
     "asset_type": "Asset Type",
     "source_asset_subtype": "Asset Type Detail",
@@ -410,7 +432,7 @@ def _bar_chart(df, column, title, key):
         labels={"x": "Assets", "y": title.removeprefix("Top ")},
     )
     figure.update_layout(height=360, margin=dict(t=55, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, width="stretch", key=key)
+    st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
 
 
 def _lifecycle_metrics(df):
@@ -558,7 +580,7 @@ def render_data_audit(df, asset_type):
         if not counts.empty:
             figure = px.bar(x=counts.values, y=counts.index, orientation="h", labels={"x": "Assets", "y": title})
             figure.update_layout(height=height, margin=dict(t=15, b=20, l=10, r=10), showlegend=False)
-            st.plotly_chart(figure, width="stretch", key=key)
+            st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
 
     query = st.text_input("Search findings", placeholder="Asset Tag, Serial Number, Model, User, Site, IMEI, Audit Notes...", key="audit-search")
     with st.expander("Audit filters", expanded=False):
@@ -613,7 +635,7 @@ def _planning_priority_chart(candidates):
     )
     figure.update_traces(textposition="outside")
     figure.update_layout(height=300, margin=dict(t=20, b=20, l=10, r=10), showlegend=False, yaxis=dict(categoryorder="array", categoryarray=order[::-1]))
-    st.plotly_chart(figure, width="stretch", key="replacement-planning-priority")
+    st.plotly_chart(_themed_chart(figure), width="stretch", key="replacement-planning-priority")
 
 
 def _candidate_age_chart(candidates, key="replacement-candidate-age-profile", title=None):
@@ -636,7 +658,7 @@ def _candidate_age_chart(candidates, key="replacement-candidate-age-profile", ti
         category_orders={"x": age_labels},
     )
     figure.update_layout(height=320, margin=dict(t=35 if title else 20, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, width="stretch", key=key)
+    st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
 
 
 def _top_n_counts(series, top_n=10):
@@ -686,7 +708,7 @@ def _breakdown_bar_chart(df, column, title, key, top_n=10):
         labels={"x": "Replacement Candidates", "y": ""},
     )
     figure.update_layout(height=340, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, width="stretch", key=key)
+    st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
     return True
 
 
@@ -704,7 +726,7 @@ def _chronological_bar_chart(df, column, title, key):
         category_orders={"x": labels},
     )
     figure.update_layout(height=320, margin=dict(t=45, b=20, l=10, r=10), showlegend=False)
-    st.plotly_chart(figure, width="stretch", key=key)
+    st.plotly_chart(_themed_chart(figure), width="stretch", key=key)
     return True
 
 
