@@ -11,7 +11,7 @@ from itam.data import (
     detect_header_row,
     validate_source_columns,
 )
-from itam.ui import render_navigation
+from itam.ui import render_navigation, render_selected_page, render_sidebar_dataset_info
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -116,16 +116,24 @@ def inject_professional_css():
         }
 
         [data-testid="stSidebar"] {
-            background: var(--al-navy);
-            border-right: 1px solid #0A1D33;
+            background: var(--al-surface);
+            border-right: 1px solid var(--al-border);
         }
 
-        /* Keep dark-sidebar text and light interactive controls separate. */
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
         [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
-            color: #F4F7FA !important;
+            color: var(--al-text) !important;
         }
+
+        [data-testid="stSidebar"] [data-testid="stButton"] button { background: transparent; border: 1px solid transparent; box-shadow: none; color: var(--al-text); justify-content: flex-start; margin: 0.08rem 0; padding: 0.35rem 0.55rem; }
+        /* The sidebar contains only the five navigation buttons in this shell. */
+        [data-testid="stSidebar"] [data-testid="stButton"] button,
+        [data-testid="stSidebar"] [data-testid="stButton"] button > div { justify-content: flex-start !important; text-align: left !important; }
+        [data-testid="stSidebar"] [data-testid="stButton"] button:hover { background: var(--al-light-blue); border-color: var(--al-border); color: var(--al-text); }
+        [data-testid="stSidebar"] [data-testid="stButton"] button:focus-visible { border-color: var(--al-info); box-shadow: 0 0 0 2px color-mix(in srgb, var(--al-info) 28%, transparent); }
+        [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] { background: var(--al-light-blue); border-color: var(--al-info); color: var(--al-info); font-weight: 700; }
+        .al-nav-section-label { color: var(--al-muted); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; margin: 0.65rem 0 0.15rem; text-transform: uppercase; }
 
         [data-testid="stSidebar"] details {
             background: transparent !important;
@@ -137,24 +145,24 @@ def inject_professional_css():
         [data-testid="stSidebar"] details[open] > summary,
         [data-testid="stSidebar"] details > summary:hover,
         [data-testid="stSidebar"] details > summary:focus-visible {
-            background: #18395C !important;
-            color: #F4F7FA !important;
+            background: var(--al-light-blue) !important;
+            color: var(--al-text) !important;
             border-radius: 5px !important;
         }
 
         [data-testid="stSidebar"] details > summary *,
         [data-testid="stSidebar"] details[open] > summary * {
-            color: #F4F7FA !important;
-            fill: #F4F7FA !important;
+            color: var(--al-text) !important;
+            fill: var(--al-text) !important;
         }
 
         [data-testid="stSidebar"] details > [data-testid="stExpanderDetails"] {
-            background: var(--al-navy) !important;
-            color: #F4F7FA !important;
+            background: var(--al-surface) !important;
+            color: var(--al-text) !important;
         }
 
         [data-testid="stSidebar"] details > [data-testid="stExpanderDetails"] * {
-            color: #F4F7FA !important;
+            color: var(--al-text) !important;
         }
 
         [data-testid="stSidebar"] [data-baseweb="select"] > div {
@@ -237,13 +245,23 @@ def inject_professional_css():
         }
 
         .al-brand {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0.25rem 0 1.25rem;
-            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--al-border);
+            padding: 0.1rem 0 0.85rem;
+            margin-bottom: 0.85rem;
         }
 
-        .al-brand-name { font-size: 1.45rem; font-weight: 700; letter-spacing: 0.02em; }
-        .al-brand-subtitle { color: #AFC4D6; font-size: 0.78rem; margin-top: 0.2rem; }
+        .al-brand-name { color: var(--al-text); font-size: 1.35rem; font-weight: 700; letter-spacing: 0.01em; }
+        .al-brand-subtitle { color: var(--al-muted); font-size: 0.68rem; line-height: 1.35; margin-top: 0.18rem; }
+        .al-sidebar-section-label { color: var(--al-muted); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; margin: 1rem 0 0.35rem; text-transform: uppercase; }
+        .al-dataset-panel, .al-dataset-empty { background: var(--al-light-blue); border: 1px solid var(--al-border); border-radius: 7px; padding: 0.65rem 0.7rem; }
+        .al-dataset-empty { color: var(--al-muted); font-size: 0.78rem; }
+        .al-dataset-row { margin: 0 0 0.48rem; overflow: hidden; }
+        .al-dataset-row:last-child { margin-bottom: 0; }
+        .al-dataset-row span { color: var(--al-muted); display: block; font-size: 0.65rem; }
+        .al-dataset-row strong { color: var(--al-text); display: block; font-size: 0.77rem; overflow-wrap: anywhere; }
+        .al-source-card { background: var(--al-surface); border: 1px solid var(--al-border); border-radius: 8px; box-shadow: 0 3px 12px rgba(15, 39, 68, 0.06); margin: 0.5rem 0 1.5rem; padding: 1rem 1.1rem 0.8rem; }
+        .al-source-card h3 { border: 0; color: var(--al-text); margin: 0 0 0.15rem; padding: 0; }
+        .al-source-card p { color: var(--al-muted) !important; font-size: 0.82rem; margin: 0 0 0.6rem; }
 
         .al-kpi {
             background: var(--al-surface);
@@ -274,7 +292,7 @@ def inject_professional_css():
         }
 
         .metric-card {
-            background: #FFFFFF;
+            background: var(--al-surface);
             border-radius: 8px;
             padding: 24px;
             color: #1A4D7A;
@@ -381,23 +399,25 @@ def inject_professional_css():
 # ============================================================================
 if __name__ == '__main__':
     inject_professional_css()
+    st.sidebar.markdown(
+        '<div class="al-brand"><div class="al-brand-name">AssetLens</div>'
+        '<div class="al-brand-subtitle">IT Asset Audit &amp; Lifecycle Intelligence</div></div>',
+        unsafe_allow_html=True,
+    )
+    navigation_slot = st.sidebar.empty()
+    dataset_slot = st.sidebar.empty()
+    import_slot = st.sidebar.empty()
     st.title("AssetLens")
     st.caption("IT Asset Audit & Lifecycle Intelligence")
-    st.caption("Audit, analyze and plan from official IT asset inventory exports.")
-
-    with st.sidebar:
-        st.markdown(
-            '<div class="al-brand"><div class="al-brand-name">AssetLens</div>'
-            '<div class="al-brand-subtitle">Asset Intelligence</div></div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("**Dataset**")
-
-    uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
+    with st.container(border=True):
+        st.subheader("Dataset Source")
+        st.caption("Upload an official asset master export to begin analysis.")
+        uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
     if uploaded_file is None:
-        st.info("Upload an Excel export to get started.")
-        st.markdown("The dashboard keeps source values intact while adding lifecycle, warranty and audit analysis in memory.")
-        with st.expander("Help & Support", expanded=False):
+        st.caption("Source values remain unchanged; analysis is performed in memory.")
+        render_sidebar_dataset_info(container=dataset_slot)
+        import_slot.empty()
+        with st.sidebar.expander("Help & Support", expanded=False):
             st.markdown("**Troubleshooting**\n\nUse an unrestricted `.xlsx` export with a recognizable asset header row. The required identity columns vary by asset type.")
             st.markdown("**Contact Support**\n\nEmail: khalis.abdrahim@gmail.com")
         st.sidebar.caption("Version 2.5.0")
@@ -412,19 +432,26 @@ if __name__ == '__main__':
 
         uploaded_file.seek(0)
         workbook = pd.ExcelFile(uploaded_file, engine='openpyxl')
-        selected_sheet = st.sidebar.selectbox("Select Sheet", workbook.sheet_names)
+        selected_sheet = workbook.sheet_names[0]
         uploaded_file.seek(0)
         detected_header = detect_header_row(uploaded_file, selected_sheet)
-        use_manual_header = st.sidebar.checkbox("Manual Header Row Selection", value=False)
-        if use_manual_header:
-            header_row = st.sidebar.number_input(
-                "Header Row (0-based)", min_value=0, max_value=20,
-                value=detected_header if detected_header is not None else 0,
-            )
-        elif detected_header is None:
-            st.warning("Automatic header detection could not find a confident export header. Enable manual header selection.")
+        with import_slot.container():
+            st.markdown('<div class="al-sidebar-section-label">Import</div>', unsafe_allow_html=True)
+            with st.expander("Import Options", expanded=detected_header is None):
+                if len(workbook.sheet_names) > 1:
+                    selected_sheet = st.selectbox("Select Sheet", workbook.sheet_names)
+                    uploaded_file.seek(0)
+                    detected_header = detect_header_row(uploaded_file, selected_sheet)
+                use_manual_header = st.checkbox("Manual Header Row Selection", value=False)
+                if use_manual_header:
+                    header_row = st.number_input(
+                        "Header Row (0-based)", min_value=0, max_value=20,
+                        value=detected_header if detected_header is not None else 0,
+                    )
+        if not use_manual_header and detected_header is None:
+            st.warning("Automatic header detection could not find a confident export header. Use Import Options to select the header row.")
             st.stop()
-        else:
+        elif not use_manual_header:
             header_row = detected_header
 
         uploaded_file.seek(0)
@@ -447,12 +474,9 @@ if __name__ == '__main__':
         processed_df, _ = get_warranty_status(processed_df)
         processed_df = run_itam_audit(processed_df)
 
-        st.sidebar.success(f"Detected: {asset_type} assets")
-        with st.sidebar.expander("Dataset details", expanded=False):
-            st.write(f"**Rows:** {len(processed_df):,}")
-            st.write(f"**Columns found:** {len(source_df.columns):,}")
-            st.write(f"**Header row:** {header_row}")
-            st.write("**Analysis fields:** Asset Type, Model / Product, Source State, Lifecycle, Warranty Status")
+        navigation_slot.empty()
+        render_navigation(processed_df, asset_type, navigation_slot)
+        render_sidebar_dataset_info(asset_type, uploaded_file.name, len(processed_df), dataset_slot)
         with st.sidebar.expander("Help & Support", expanded=False):
             st.markdown("**Troubleshooting**\n\nCheck the selected sheet and header row if the export is not detected.")
             st.markdown("**Contact Support**\n\nEmail: khalis.abdrahim@gmail.com")
@@ -462,4 +486,4 @@ if __name__ == '__main__':
         st.error(f"Error reading Excel file: {error}")
         st.info("Check that the file is an unprotected .xlsx export with the correct header row.")
     else:
-        render_navigation(processed_df, asset_type)
+        render_selected_page(processed_df, asset_type)

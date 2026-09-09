@@ -856,13 +856,75 @@ def render_replacement_planning(df, asset_type):
         )
 
 
-def render_navigation(df, asset_type):
-    page = st.sidebar.selectbox("Navigation", ["Overview", "Asset Explorer", "Lifecycle & Warranty", "Data Audit", "Replacement Planning"], key="navigation")
-    renderers = {
+NAVIGATION_ITEMS = [
+    ("⌂", "Overview"),
+    ("▣", "Asset Explorer"),
+    ("◷", "Lifecycle & Warranty"),
+    ("✓", "Data Audit"),
+    ("▤", "Replacement Planning"),
+]
+
+
+def render_sidebar_dataset_info(asset_type=None, filename=None, record_count=None, container=None):
+    """Render the compact dataset summary used by the global sidebar shell."""
+    target = container.container() if container is not None else st.sidebar
+    target.markdown('<div class="al-sidebar-section-label">Dataset</div>', unsafe_allow_html=True)
+    if not asset_type or record_count is None:
+        target.markdown('<div class="al-dataset-empty">No dataset loaded</div>', unsafe_allow_html=True)
+        return
+    safe_filename = escape(str(filename or "Uploaded workbook"))
+    target.markdown(
+        '<div class="al-dataset-panel">'
+        f'<div class="al-dataset-row"><span>Dataset</span><strong>{escape(str(asset_type))} Assets</strong></div>'
+        f'<div class="al-dataset-row"><span>Source</span><strong title="{safe_filename}">{safe_filename}</strong></div>'
+        f'<div class="al-dataset-row"><span>Records</span><strong>{int(record_count):,}</strong></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _page_renderers():
+    return {
         "Overview": render_overview,
         "Asset Explorer": render_asset_explorer,
         "Lifecycle & Warranty": render_lifecycle_warranty,
         "Data Audit": render_data_audit,
         "Replacement Planning": render_replacement_planning,
     }
-    renderers[page](df, asset_type)
+
+
+def _set_navigation(page):
+    st.session_state["navigation"] = page
+
+
+def render_navigation(df, asset_type, container=None):
+    """Render the five production pages as compact native sidebar buttons."""
+    if container is not None:
+        target = container.container()
+    else:
+        target = st.sidebar
+    current_page = st.session_state.get("navigation", "Overview")
+    if current_page not in {label for _, label in NAVIGATION_ITEMS}:
+        current_page = "Overview"
+    target.markdown('<div class="al-nav-section-label">Overview</div>', unsafe_allow_html=True)
+    overview_icon = NAVIGATION_ITEMS[0][0]
+    target.button(
+        f"{overview_icon}  Overview", key="navigation-overview-button",
+        type="primary" if current_page == "Overview" else "secondary",
+        width="stretch", on_click=_set_navigation, args=("Overview",),
+    )
+    target.markdown('<div class="al-nav-section-label">Analysis</div>', unsafe_allow_html=True)
+    analysis_pages = ["Asset Explorer", "Lifecycle & Warranty", "Data Audit", "Replacement Planning"]
+    icons = {label: icon for icon, label in NAVIGATION_ITEMS}
+    for page in analysis_pages:
+        target.button(
+            f"{icons[page]}  {page}", key=f"navigation-{page}",
+            type="primary" if current_page == page else "secondary",
+            width="stretch", on_click=_set_navigation, args=(page,),
+        )
+
+
+def render_selected_page(df, asset_type):
+    """Render the page selected by the already-rendered global navigation."""
+    page = st.session_state.get("navigation", "Overview")
+    _page_renderers().get(page, render_overview)(df, asset_type)
